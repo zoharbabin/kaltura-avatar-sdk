@@ -1,0 +1,30 @@
+{
+  "v": "2",
+  "mode": "separation",
+  "org": { "n": "McDonald's", "tone": "calm, direct, respectful" },
+  "role": { "id": "MCD-CREW-001", "t": "Crew Member", "loc": "Orlando, FL", "type": "part_time" },
+  "subj": { "id": "emp_77102", "name": "Jordan K.", "lang": "en", "prof": { "notes": ["No debate. Short sentences. Checklist logistics."] } },
+  "mtg": { "mins": 5, "focus": ["clarity", "respect", "logistics"], "style": "No small talk. Don’t argue." },
+  "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
+  "case": {
+    "type": "Performance",
+    "eff": "2026-02-04",
+    "imm": true,
+    "talk": [
+      "Your employment is ending effective today due to attendance not meeting policy expectations, as documented in prior discussions.",
+      "This decision is final.",
+      "I can walk through next steps and logistics."
+    ],
+    "log": {
+      "pay": "Final pay will be handled through standard payroll; details will be provided in writing.",
+      "ben": "Any benefits information and deadlines will be provided in writing; HR can answer questions.",
+      "prop": "Please return any company items per the instructions you’ll receive today.",
+      "access": "Access changes will occur shortly after this meeting.",
+      "verify": "Employment verification is handled through the standard HR process; details will be provided.",
+      "bel": "If you have personal items onsite, your manager will coordinate pickup."
+    },
+    "hr": { "name": "HR Operations", "chan": "HR portal/ticket", "appeal": "If a review process applies, follow the steps in the written notice." }
+  },
+  "limits": { "max_q": 1, "escal": ["self-harm", "violence", "legal"] },
+  "inst": ["Only use case.talk[]. If pressed for details, route to case.hr.chan."]
+}

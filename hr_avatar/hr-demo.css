@@ -1,0 +1,623 @@
+/**
+ * Kaltura HR Avatar Demo Styles
+ *
+ * Design System:
+ * - Warm, professional color palette
+ * - Soft shadows and rounded corners
+ * - Three accent colors for scenario types:
+ *   - Interview: Sage green (#6b9080)
+ *   - Post-Interview: Purple (#7c6ca8)
+ *   - Separation: Dusty rose (#b56576)
+ */
+
+/* =============================================================================
+   RESET & BASE
+   ============================================================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* =============================================================================
+   CSS CUSTOM PROPERTIES (Design Tokens)
+   ============================================================================= */
+
+:root {
+    /* Background colors */
+    --bg-primary: #faf8f5;
+    --bg-secondary: #fff;
+    --bg-card: #fff;
+    --bg-card-hover: #fef9f3;
+
+    /* Accent colors - Primary warm orange */
+    --accent-warm: #e07850;
+    --accent-warm-light: #f4a582;
+
+    /* Accent colors - Mode specific */
+    --accent-interview: #6b9080;
+    --accent-interview-light: #a4c3b2;
+    --accent-post-interview: #7c6ca8;
+    --accent-post-interview-light: #b5a8d4;
+    --accent-separation: #b56576;
+    --accent-separation-light: #e0a4af;
+
+    /* Text colors */
+    --text-primary: #2d3436;
+    --text-secondary: #636e72;
+    --text-muted: #b2bec3;
+
+    /* Border and shadows */
+    --border-light: #e8e4df;
+    --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+    /* Border radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+}
+
+/* =============================================================================
+   TYPOGRAPHY & BODY
+   ============================================================================= */
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* =============================================================================
+   LAYOUT - App Container
+   ============================================================================= */
+
+.app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+
+header {
+    text-align: center;
+    padding: 32px 0 40px;
+}
+
+header h1 {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+header p {
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
+/* =============================================================================
+   LAYOUT - Main Grid
+   ============================================================================= */
+
+.main-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+}
+
+/* =============================================================================
+   SIDEBAR - Scenario Selection
+   ============================================================================= */
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Scenario Section Container */
+.scenario-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-soft);
+}
+
+.scenario-section h2 {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Section header colors by type */
+.scenario-section.interview h2 {
+    color: var(--accent-interview);
+}
+
+.scenario-section.post-interview h2 {
+    color: var(--accent-post-interview);
+}
+
+.scenario-section.separation h2 {
+    color: var(--accent-separation);
+}
+
+.scenario-section h2 .icon {
+    font-size: 18px;
+}
+
+/* Scenario List */
+.scenario-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* =============================================================================
+   SCENARIO CARDS
+   ============================================================================= */
+
+.scenario-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Hover state */
+.scenario-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-warm-light);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-1px);
+}
+
+/* Active/selected state - base */
+.scenario-card.active {
+    border-color: var(--accent-warm);
+    background: linear-gradient(135deg, #fef9f3, #fff);
+}
+
+/* Active state - by type */
+.scenario-card.interview.active {
+    border-color: var(--accent-interview);
+}
+
+.scenario-card.post-interview.active {
+    border-color: var(--accent-post-interview);
+}
+
+.scenario-card.separation.active {
+    border-color: var(--accent-separation);
+}
+
+/* Card content */
+.scenario-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.scenario-card p {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Card metadata (company, duration/type) */
+.scenario-card .meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.scenario-card .meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* =============================================================================
+   AVATAR SECTION - Main Content Area
+   ============================================================================= */
+
+.avatar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Avatar Container */
+#avatar-container {
+    width: 100%;
+    height: 480px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#avatar-container.empty {
+    background: linear-gradient(135deg, #f5f2ed, #faf8f5);
+}
+
+/* Empty State (before scenario selection) */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+}
+
+.empty-state .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* =============================================================================
+   CONTROLS - Action Buttons
+   ============================================================================= */
+
+.controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Button base styles */
+.btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary button (Start) */
+.btn-primary {
+    background: var(--accent-warm);
+    color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #c9603a;
+    transform: translateY(-1px);
+}
+
+/* Secondary button (Download) */
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-warm-light);
+}
+
+/* Danger button (End) */
+.btn-danger {
+    background: var(--accent-separation);
+    color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #9d4f5e;
+}
+
+/* Pulse animation for download prompt */
+.btn.pulse {
+    animation: pulse 0.5s ease-in-out 3;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* =============================================================================
+   INFO PANEL - Status Display
+   ============================================================================= */
+
+.info-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.info-item .label {
+    color: var(--text-muted);
+}
+
+.info-item .value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Status color variants */
+.info-item .value.status-active {
+    color: var(--accent-interview);
+}
+
+.info-item .value.status-ended {
+    color: var(--accent-separation);
+}
+
+/* =============================================================================
+   TRANSCRIPT PANEL
+   ============================================================================= */
+
+.transcript-panel {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+}
+
+/* Transcript Header */
+.transcript-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.transcript-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Transcript Actions */
+.transcript-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.transcript-actions .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+/* Transcript Content Area */
+.transcript-content {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 16px 20px;
+}
+
+.transcript-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+/* Transcript Entries */
+.transcript-entry {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+}
+
+.transcript-entry:last-child {
+    margin-bottom: 0;
+}
+
+/* Avatar message (left-aligned) */
+.transcript-entry.avatar {
+    background: linear-gradient(135deg, var(--accent-interview-light), #cce3d5);
+    margin-right: 40px;
+}
+
+/* User message (right-aligned) */
+.transcript-entry.user {
+    background: linear-gradient(135deg, #f5f2ed, #faf8f5);
+    margin-left: 40px;
+}
+
+/* Entry content */
+.transcript-entry .role {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+}
+
+.transcript-entry .text {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.transcript-entry .time {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* =============================================================================
+   SCENARIO DETAILS PANEL
+   ============================================================================= */
+
+.scenario-details {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--accent-warm);
+}
+
+.scenario-details h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.scenario-details .detail-row {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.scenario-details .detail-row .label {
+    color: var(--text-muted);
+    min-width: 80px;
+}
+
+.scenario-details .detail-row .value {
+    color: var(--text-secondary);
+}
+
+/* =============================================================================
+   LOADING STATE
+   ============================================================================= */
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-light);
+    border-top-color: var(--accent-warm);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* =============================================================================
+   RESPONSIVE - Tablet
+   ============================================================================= */
+
+@media (max-width: 900px) {
+    .main-container {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .scenario-section {
+        flex: 1;
+        min-width: 280px;
+    }
+}
+
+/* =============================================================================
+   RESPONSIVE - Mobile
+   ============================================================================= */
+
+@media (max-width: 600px) {
+    .app {
+        padding: 16px;
+    }
+
+    header h1 {
+        font-size: 24px;
+    }
+
+    #avatar-container {
+        height: 360px;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .transcript-entry.avatar {
+        margin-right: 20px;
+    }
+
+    .transcript-entry.user {
+        margin-left: 20px;
+    }
+
+    .transcript-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .transcript-actions .btn {
+        width: 100%;
+    }
+
+    .transcript-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+}

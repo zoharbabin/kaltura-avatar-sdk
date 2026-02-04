@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaltura HR Avatar - Interview & Separation Scenarios</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="hr-demo.css">
+</head>
+<body>
+    <div class="app">
+        <!-- ================================================================
+             HEADER
+             ================================================================ -->
+        <header>
+            <h1>Kaltura HR Avatar</h1>
+            <p>AI-Powered Interview & Separation Conversations</p>
+        </header>
+
+        <div class="main-container">
+            <!-- ============================================================
+                 SIDEBAR - Scenario Selection
+                 Three categories of HR scenarios to choose from
+                 ============================================================ -->
+            <aside class="sidebar">
+                <!-- Interview Scenarios -->
+                <section class="scenario-section interview">
+                    <h2><span class="icon">&#128100;</span> Interview Scenarios</h2>
+                    <div class="scenario-list" id="interview-list">
+                        <!-- Populated by JavaScript from SCENARIOS.interview -->
+                    </div>
+                </section>
+
+                <!-- Post-Interview Scenarios -->
+                <section class="scenario-section post-interview">
+                    <h2><span class="icon">&#128222;</span> Post-Interview Calls</h2>
+                    <div class="scenario-list" id="post-interview-list">
+                        <!-- Populated by JavaScript from SCENARIOS.postInterview -->
+                    </div>
+                </section>
+
+                <!-- Separation Scenarios -->
+                <section class="scenario-section separation">
+                    <h2><span class="icon">&#128221;</span> Separation Scenarios</h2>
+                    <div class="scenario-list" id="separation-list">
+                        <!-- Populated by JavaScript from SCENARIOS.separation -->
+                    </div>
+                </section>
+            </aside>
+
+            <!-- ============================================================
+                 MAIN CONTENT - Avatar & Transcript
+                 ============================================================ -->
+            <main class="avatar-section">
+                <!-- Scenario Details Panel (shows after selection) -->
+                <div class="scenario-details" id="scenario-details" style="display: none;">
+                    <!-- Populated by JavaScript: showScenarioDetails() -->
+                </div>
+
+                <!-- Avatar Container (SDK embeds iframe here) -->
+                <div id="avatar-container" class="empty">
+                    <div class="empty-state" id="empty-state">
+                        <div class="icon">&#128104;&#8205;&#128188;</div>
+                        <h3>Select a Scenario</h3>
+                        <p>Choose an interview or separation scenario from the left to begin</p>
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="controls">
+                    <button class="btn btn-primary" id="start-btn" disabled>
+                        <span>&#9654;</span> Start Conversation
+                    </button>
+                    <button class="btn btn-danger" id="end-btn" disabled>
+                        <span>&#9632;</span> End
+                    </button>
+                </div>
+
+                <!-- Status Info Panel -->
+                <div class="info-panel">
+                    <div class="info-item">
+                        <span class="label">Status:</span>
+                        <span class="value" id="status-value">Ready</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Scenario:</span>
+                        <span class="value" id="scenario-value">None selected</span>
+                    </div>
+                </div>
+
+                <!-- Transcript Panel -->
+                <div class="transcript-panel">
+                    <div class="transcript-header">
+                        <h3>Conversation Transcript</h3>
+                        <div class="transcript-actions">
+                            <button class="btn btn-secondary" id="download-btn" disabled>
+                                Download TXT
+                            </button>
+                            <button class="btn btn-secondary" id="download-md-btn" disabled>
+                                Download MD
+                            </button>
+                        </div>
+                    </div>
+                    <div class="transcript-content" id="transcript-content">
+                        <div class="transcript-empty" id="transcript-empty">
+                            Conversation transcript will appear here...
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ====================================================================
+         SCRIPTS
+         ==================================================================== -->
+    <!-- Kaltura Avatar SDK (provides KalturaAvatarSDK class) -->
+    <script src="../kaltura-avatar-sdk.js"></script>
+
+    <!-- HR Demo Application -->
+    <script src="hr-demo.js"></script>
+</body>
+</html>

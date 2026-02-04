@@ -1,0 +1,30 @@
+{
+  "v": "2",
+  "mode": "separation",
+  "org": { "n": "Amazon", "tone": "calm, direct, respectful" },
+  "role": { "t": "Delivery Driver", "loc": "Miami, FL", "type": "full_time" },
+  "subj": { "id": "emp_88219", "name": "Jordan Lee", "lang": "en", "prof": { "notes": ["No small talk. No debate. Checklist logistics."] } },
+  "mtg": { "mins": 5, "focus": ["clarity", "respect", "logistics"], "style": "Short sentences. Keep it brief." },
+  "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
+  "case": {
+    "type": "Layoff",
+    "eff": "2026-02-04",
+    "imm": true,
+    "talk": [
+      "Today is your last day of employment with the company due to a business restructure affecting this role.",
+      "This decision is final.",
+      "I can walk through next steps and logistics."
+    ],
+    "log": {
+      "pay": "Final pay will be processed through standard payroll; details provided in writing.",
+      "ben": "Benefits continuation information will be sent in writing; HR can answer questions.",
+      "prop": "Return badge/device using the prepaid label emailed today.",
+      "access": "System access will change shortly after this meeting.",
+      "verify": "Employment verification is handled through the standard HR process; link provided.",
+      "bel": "Personal belongings pickup will be coordinated via manager."
+    },
+    "hr": { "name": "HR Operations", "chan": "HR portal ticket", "appeal": "Use the HR portal channel in your written notice." }
+  },
+  "limits": { "max_q": 1, "escal": ["self-harm", "violence", "legal"] },
+  "inst": ["Do not add details beyond case.talk[].", "Route all disputes to case.hr.chan."]
+}

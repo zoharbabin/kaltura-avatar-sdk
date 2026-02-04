@@ -1,0 +1,35 @@
+{
+  "v": "2",
+  "mode": "separation",
+  "org": { "n": "Acme Logistics", "tone": "firm, respectful, brief" },
+  "role": { "id": "ACME-WH-ASSOC-02", "t": "Warehouse Associate", "loc": "Lisbon, PT", "type": "full_time", "shift": "Day shift" },
+  "subj": {
+    "id": "emp_11402",
+    "name": "A. Santos",
+    "lang": "en",
+    "prof": { "notes": ["Do not add details beyond case.talk[]. Keep it under 7 minutes."] }
+  },
+  "mtg": { "mins": 5, "focus": ["clarity", "respect", "logistics"], "style": "No small talk. No debate. Short sentences." },
+  "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
+  "case": {
+    "type": "Misconduct",
+    "eff": "2026-02-04",
+    "imm": true,
+    "talk": [
+      "Your employment is ending effective today due to a violation of company policy, as documented.",
+      "This decision is final.",
+      "I can walk through next steps and logistics."
+    ],
+    "log": {
+      "pay": "Final pay details will be provided in writing; HR is the contact for specifics.",
+      "ben": "Benefits information and deadlines will be sent in writing.",
+      "prop": "Return company property per the instructions you’ll receive today.",
+      "access": "Access will be disabled shortly after this meeting.",
+      "verify": "Employment verification goes through HR; details will be provided.",
+      "bel": "Personal belongings will be handled via manager coordination."
+    },
+    "hr": { "name": "HR Operations", "chan": "HR portal ticket", "appeal": "Use the HR portal channel in your written notice for any follow-up." }
+  },
+  "limits": { "max_q": 1, "escal": ["self-harm", "violence", "legal"] },
+  "inst": ["Only use approved case.talk[]. If pressed for details, route to case.hr.chan."]
+}
