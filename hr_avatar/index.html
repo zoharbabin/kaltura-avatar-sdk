@@ -5,13 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kaltura HR Avatar - Interview & Separation Scenarios</title>
 
+    <!-- Cache Control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="hr-demo.css">
+    <!-- Styles (versioned for cache busting) -->
+    <link rel="stylesheet" href="hr-demo.css?v=1.0.1">
 </head>
 <body>
     <div class="app">
@@ -111,9 +116,9 @@
          SCRIPTS
          ==================================================================== -->
     <!-- Kaltura Avatar SDK (provides KalturaAvatarSDK class) -->
-    <script src="../kaltura-avatar-sdk.js"></script>
+    <script src="../kaltura-avatar-sdk.js?v=1.0.0"></script>
 
-    <!-- HR Demo Application -->
-    <script src="hr-demo.js"></script>
+    <!-- HR Demo Application (versioned for cache busting) -->
+    <script src="hr-demo.js?v=1.0.1"></script>
 </body>
 </html>

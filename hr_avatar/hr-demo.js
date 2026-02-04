@@ -12,6 +12,11 @@
  */
 
 // =============================================================================
+// VERSION (update when scenarios change to bust browser cache)
+// =============================================================================
+const APP_VERSION = '1.0.1';
+
+// =============================================================================
 // SCENARIO CONFIGURATION
 // =============================================================================
 // Add new scenarios here. Each scenario needs:
@@ -307,9 +312,10 @@ async function selectScenario(id, type) {
 
     currentScenario = scenarioList.find(s => s.id === id);
 
-    // Load the DPP JSON file
+    // Load the DPP JSON file (with cache busting)
     try {
-        const response = await fetch(currentScenario.file);
+        const url = `${currentScenario.file}?v=${APP_VERSION}`;
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
