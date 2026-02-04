@@ -501,6 +501,142 @@ header p {
 }
 
 /* =============================================================================
+   CV UPLOAD PANEL
+   ============================================================================= */
+
+.cv-upload-panel {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--accent-interview);
+}
+
+.cv-upload-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.cv-upload-header .icon {
+    font-size: 18px;
+}
+
+.cv-upload-area {
+    border: 2px dashed var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.cv-upload-area:hover,
+.cv-upload-area.dragover {
+    border-color: var(--accent-interview);
+    background: var(--bg-card-hover);
+}
+
+.cv-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.cv-upload-label .upload-icon {
+    font-size: 32px;
+    opacity: 0.5;
+}
+
+.cv-upload-label .upload-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.cv-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--accent-interview-light);
+    border-radius: var(--radius-sm);
+    margin-top: 12px;
+}
+
+.cv-filename {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cv-filename::before {
+    content: '✓';
+    color: var(--accent-interview);
+    font-weight: bold;
+}
+
+.cv-remove-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.cv-remove-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--accent-separation);
+}
+
+.cv-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.cv-upload-panel.has-cv .cv-upload-area {
+    display: none;
+}
+
+.cv-upload-panel.processing .cv-upload-area {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.cv-upload-panel.processing .cv-upload-label .upload-text::after {
+    content: ' Processing...';
+}
+
+/* Start Interview Button */
+.btn-start-interview {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: var(--accent-interview);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    justify-content: center;
+}
+
+.btn-start-interview:hover {
+    background: #5a7a6b;
+    transform: translateY(-1px);
+}
+
+/* =============================================================================
    LOADING STATE
    ============================================================================= */
 

@@ -14,7 +14,15 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
+
+// =============================================================================
+// PDF.js CONFIGURATION
+// =============================================================================
+// Set the worker source for PDF.js
+if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 // =============================================================================
 // SCENARIO CONFIGURATION
@@ -143,6 +151,7 @@ const SCENARIOS = {
 let sdk = null;              // KalturaAvatarSDK instance
 let currentScenario = null;  // Currently selected scenario metadata
 let scenarioData = null;     // Loaded DPP JSON data
+let cvText = null;           // Extracted CV text (null if no CV uploaded)
 
 // =============================================================================
 // DOM ELEMENTS
@@ -153,6 +162,15 @@ const ui = {
     avatarContainer: document.getElementById('avatar-container'),
     emptyState: document.getElementById('empty-state'),
     scenarioDetails: document.getElementById('scenario-details'),
+
+    // CV Upload
+    cvUploadPanel: document.getElementById('cv-upload-panel'),
+    cvUploadArea: document.getElementById('cv-upload-area'),
+    cvFileInput: document.getElementById('cv-file-input'),
+    cvStatus: document.getElementById('cv-status'),
+    cvFilename: document.getElementById('cv-filename'),
+    cvRemoveBtn: document.getElementById('cv-remove-btn'),
+    startInterviewBtn: document.getElementById('start-interview-btn'),
 
     // Transcript
     transcriptContent: document.getElementById('transcript-content'),
@@ -324,8 +342,11 @@ async function selectScenario(id, type) {
         showScenarioDetails();
         ui.scenarioValue.textContent = currentScenario.name;
 
-        // Auto-start the conversation
-        await startConversation();
+        // For interview scenarios, wait for user to click Start (allows CV upload)
+        // For other scenarios, auto-start the conversation
+        if (scenarioData.mode !== 'interview') {
+            await startConversation();
+        }
     } catch (error) {
         console.error('Failed to load scenario:', error);
         ui.scenarioValue.textContent = 'Error loading scenario';
@@ -399,6 +420,9 @@ function showScenarioDetails() {
         separation: 'var(--accent-separation)'
     };
     ui.scenarioDetails.style.borderLeftColor = accentColors[mode] || 'var(--accent-warm)';
+
+    // Show CV upload panel only for interviews
+    updateCVPanelVisibility(mode);
 }
 
 // =============================================================================
@@ -424,8 +448,9 @@ async function startConversation() {
 
         // Inject the Dynamic Page Prompt after avatar loads
         // Small delay ensures the avatar is ready to receive the prompt
+        // Uses buildDynamicPrompt() to include CV data if available
         setTimeout(() => {
-            const promptJson = JSON.stringify(scenarioData);
+            const promptJson = buildDynamicPrompt();
             sdk.injectPrompt(promptJson);
         }, 2000);
     } catch (error) {
@@ -546,9 +571,160 @@ function escapeHtml(text) {
 }
 
 // =============================================================================
+// CV UPLOAD HANDLING
+// =============================================================================
+
+/**
+ * Extract text from a PDF file using PDF.js
+ * @param {File} file - PDF file object
+ * @returns {Promise<string>} Extracted text
+ */
+async function extractTextFromPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+    }
+
+    return fullText.trim();
+}
+
+/**
+ * Handle CV file selection
+ * @param {File} file - Selected PDF file
+ */
+async function handleCVFile(file) {
+    if (!file || file.type !== 'application/pdf') {
+        alert('Please upload a PDF file.');
+        return;
+    }
+
+    // Show processing state
+    ui.cvUploadPanel.classList.add('processing');
+
+    try {
+        cvText = await extractTextFromPDF(file);
+
+        // Update UI to show uploaded file
+        ui.cvFilename.textContent = file.name;
+        ui.cvStatus.style.display = 'flex';
+        ui.cvUploadPanel.classList.add('has-cv');
+        ui.cvUploadPanel.classList.remove('processing');
+
+        console.log('CV extracted:', cvText.substring(0, 200) + '...');
+    } catch (error) {
+        console.error('Failed to extract CV text:', error);
+        alert('Failed to read PDF. Please try another file.');
+        ui.cvUploadPanel.classList.remove('processing');
+        clearCV();
+    }
+}
+
+/**
+ * Clear the uploaded CV
+ */
+function clearCV() {
+    cvText = null;
+    ui.cvFileInput.value = '';
+    ui.cvStatus.style.display = 'none';
+    ui.cvUploadPanel.classList.remove('has-cv');
+}
+
+/**
+ * Show or hide CV upload panel based on scenario type
+ * @param {string} mode - Scenario mode
+ */
+function updateCVPanelVisibility(mode) {
+    if (mode === 'interview') {
+        ui.cvUploadPanel.style.display = 'block';
+    } else {
+        ui.cvUploadPanel.style.display = 'none';
+        clearCV(); // Clear CV when switching away from interview
+    }
+}
+
+/**
+ * Build the dynamic prompt including CV if available
+ * @returns {string} JSON string for prompt injection
+ */
+function buildDynamicPrompt() {
+    if (!scenarioData) return null;
+
+    // If no CV, return original scenario data
+    if (!cvText) {
+        return JSON.stringify(scenarioData);
+    }
+
+    // Clone scenario data and add CV information
+    const promptData = JSON.parse(JSON.stringify(scenarioData));
+
+    // Add CV text to the subject's profile notes
+    if (!promptData.subj.prof) {
+        promptData.subj.prof = {};
+    }
+    if (!promptData.subj.prof.notes) {
+        promptData.subj.prof.notes = [];
+    }
+
+    // Add CV context instruction
+    promptData.subj.prof.cv_summary = cvText;
+    promptData.subj.prof.notes.push(
+        'IMPORTANT: A CV/resume was provided. Review the cv_summary and ask relevant follow-up questions about their experience, skills, and background mentioned in the CV.'
+    );
+
+    // Add instruction to use CV
+    if (!promptData.inst) {
+        promptData.inst = [];
+    }
+    promptData.inst.push(
+        'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
+    );
+
+    return JSON.stringify(promptData);
+}
+
+// =============================================================================
 // EVENT LISTENERS
 // =============================================================================
 
+// CV file input change
+ui.cvFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleCVFile(e.target.files[0]);
+    }
+});
+
+// CV remove button
+ui.cvRemoveBtn.addEventListener('click', clearCV);
+
+// Start interview button
+ui.startInterviewBtn.addEventListener('click', startConversation);
+
+// Drag and drop for CV upload
+ui.cvUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    ui.cvUploadArea.classList.add('dragover');
+});
+
+ui.cvUploadArea.addEventListener('dragleave', () => {
+    ui.cvUploadArea.classList.remove('dragover');
+});
+
+ui.cvUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    ui.cvUploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        handleCVFile(e.dataTransfer.files[0]);
+    }
+});
+
+// Download buttons
 ui.downloadBtn.addEventListener('click', () => downloadTranscript('text'));
 ui.downloadMdBtn.addEventListener('click', () => downloadTranscript('markdown'));
 

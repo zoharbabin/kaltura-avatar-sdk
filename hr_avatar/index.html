@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
     <!-- Styles (versioned for cache busting) -->
-    <link rel="stylesheet" href="hr-demo.css?v=1.0.1">
+    <link rel="stylesheet" href="hr-demo.css?v=1.0.2">
 </head>
 <body>
     <div class="app">
@@ -68,6 +68,29 @@
                     <!-- Populated by JavaScript: showScenarioDetails() -->
                 </div>
 
+                <!-- CV Upload Panel (shows for interview scenarios) -->
+                <div class="cv-upload-panel" id="cv-upload-panel" style="display: none;">
+                    <div class="cv-upload-header">
+                        <span class="icon">&#128196;</span>
+                        <span>Upload Candidate CV (Optional)</span>
+                    </div>
+                    <div class="cv-upload-area" id="cv-upload-area">
+                        <input type="file" id="cv-file-input" accept=".pdf" hidden>
+                        <label for="cv-file-input" class="cv-upload-label">
+                            <span class="upload-icon">&#128194;</span>
+                            <span class="upload-text">Click to upload PDF or drag & drop</span>
+                        </label>
+                    </div>
+                    <div class="cv-status" id="cv-status" style="display: none;">
+                        <span class="cv-filename" id="cv-filename"></span>
+                        <button class="cv-remove-btn" id="cv-remove-btn" title="Remove CV">&#10005;</button>
+                    </div>
+                    <p class="cv-hint">The avatar will ask questions based on the CV content</p>
+                    <button class="btn btn-start-interview" id="start-interview-btn">
+                        <span>&#9654;</span> Start Interview
+                    </button>
+                </div>
+
                 <!-- Avatar Container (SDK embeds iframe here) -->
                 <div id="avatar-container" class="empty">
                     <div class="empty-state" id="empty-state">
@@ -115,10 +138,13 @@
     <!-- ====================================================================
          SCRIPTS
          ==================================================================== -->
+    <!-- PDF.js for client-side PDF text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
     <!-- Kaltura Avatar SDK (provides KalturaAvatarSDK class) -->
     <script src="../kaltura-avatar-sdk.js?v=1.0.0"></script>
 
     <!-- HR Demo Application (versioned for cache busting) -->
-    <script src="hr-demo.js?v=1.0.1"></script>
+    <script src="hr-demo.js?v=1.0.2"></script>
 </body>
 </html>
