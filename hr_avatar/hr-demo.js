@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.5';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -70,6 +70,26 @@ const SCENARIOS = {
             role: 'Crew Member',
             location: 'Orlando, FL',
             duration: '5 min'
+        },
+        {
+            id: 'interview_aws_sde',
+            name: 'AWS Software Engineer',
+            description: 'Technical interview with code walkthrough',
+            file: 'dynamic_page_prompt_samples/interview_aws_engineering-software-developer.json',
+            company: 'AWS',
+            role: 'Software Development Engineer',
+            location: 'EMEA (Hybrid)',
+            duration: '45 min'
+        },
+        {
+            id: 'interview_amazon_ads_analyst',
+            name: 'Amazon Ads Data Analyst',
+            description: 'AI/Data analyst technical interview',
+            file: 'dynamic_page_prompt_samples/interview_amazon_ads_engineering-ai-data-analyst.json',
+            company: 'Amazon Ads',
+            role: 'AI Specialist / Data Analyst',
+            location: 'EMEA (Hybrid)',
+            duration: '45 min'
         }
     ],
 
