@@ -38,7 +38,7 @@
     }
   },
   "mtg": {
-    "mins": 45,
+    "mins": 5,
     "focus": [
       "sql + python competence",
       "experimental rigor",
