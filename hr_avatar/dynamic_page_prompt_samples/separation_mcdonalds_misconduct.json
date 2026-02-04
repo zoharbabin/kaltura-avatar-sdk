@@ -3,7 +3,7 @@
   "mode": "separation",
   "org": { "n": "McDonald's", "tone": "firm, respectful, brief" },
   "role": { "id": "MCD-CASH-001", "t": "Cashier / Front Counter", "loc": "Orlando, FL", "type": "part_time" },
-  "subj": { "id": "emp_99221", "name": "R. Nguyen", "lang": "en", "prof": { "notes": ["Only approved points. No extra details."] } },
+  "subj": { "id": "emp_99221", "name": "Ryan Nguyen", "lang": "en", "prof": { "notes": ["Only approved points. No extra details."] } },
   "mtg": { "mins": 5, "focus": ["clarity", "respect", "logistics"], "style": "Short sentences. No debate." },
   "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
   "case": {

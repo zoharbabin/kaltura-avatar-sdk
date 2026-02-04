@@ -3,7 +3,7 @@
   "mode": "post_interview",
   "org": { "n": "McDonald's", "tone": "upbeat, clear, practical" },
   "role": { "id": "MCD-CREW-001", "t": "Crew Member", "loc": "Orlando, FL", "type": "part_time" },
-  "subj": { "id": "cand_33210", "name": "Casey M.", "lang": "en" },
+  "subj": { "id": "cand_33210", "name": "Casey Mitchell", "lang": "en" },
   "mtg": { "mins": 5, "style": "Friendly and efficient." },
   "eval": { "tag": "INTERNAL_OUTCOME_NOTE", "dims": [] },
   "case": {

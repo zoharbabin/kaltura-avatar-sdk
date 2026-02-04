@@ -3,7 +3,7 @@
   "mode": "post_interview",
   "org": { "n": "McDonald's", "tone": "kind, clear, brief" },
   "role": { "id": "MCD-CREW-001", "t": "Crew Member", "loc": "Orlando, FL", "type": "part_time", "shift": "Evenings + weekends" },
-  "subj": { "id": "cand_22019", "name": "Taylor R.", "lang": "en" },
+  "subj": { "id": "cand_22019", "name": "Taylor Roberts", "lang": "en" },
   "mtg": { "mins": 5, "style": "Warm tone, short call." },
   "eval": { "tag": "INTERNAL_OUTCOME_NOTE", "dims": [] },
   "case": {

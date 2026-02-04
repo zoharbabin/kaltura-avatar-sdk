@@ -5,7 +5,7 @@
   "role": { "id": "ACME-WH-ASSOC-02", "t": "Warehouse Associate", "loc": "Lisbon, PT", "type": "full_time", "shift": "Day shift" },
   "subj": {
     "id": "emp_11402",
-    "name": "A. Santos",
+    "name": "Andre Santos",
     "lang": "en",
     "prof": { "notes": ["Do not add details beyond case.talk[]. Keep it under 7 minutes."] }
   },

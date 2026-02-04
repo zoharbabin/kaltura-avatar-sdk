@@ -3,7 +3,7 @@
   "mode": "separation",
   "org": { "n": "McDonald's", "tone": "calm, direct, respectful" },
   "role": { "id": "MCD-CREW-001", "t": "Crew Member", "loc": "Orlando, FL", "type": "part_time" },
-  "subj": { "id": "emp_77102", "name": "Jordan K.", "lang": "en", "prof": { "notes": ["No debate. Short sentences. Checklist logistics."] } },
+  "subj": { "id": "emp_77102", "name": "Jordan Kim", "lang": "en", "prof": { "notes": ["No debate. Short sentences. Checklist logistics."] } },
   "mtg": { "mins": 5, "focus": ["clarity", "respect", "logistics"], "style": "No small talk. Don’t argue." },
   "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
   "case": {
