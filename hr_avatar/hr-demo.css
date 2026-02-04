@@ -500,6 +500,62 @@ header p {
     color: var(--text-secondary);
 }
 
+/* Editable input fields in scenario details */
+.scenario-details .detail-row.editable {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scenario-details .detail-row.editable .label {
+    flex-shrink: 0;
+}
+
+.scenario-details .edit-input {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.scenario-details .edit-input:hover:not(:disabled) {
+    border-color: var(--accent-interview-light);
+}
+
+.scenario-details .edit-input:focus {
+    outline: none;
+    border-color: var(--accent-interview);
+    box-shadow: 0 0 0 3px rgba(107, 144, 128, 0.15);
+}
+
+.scenario-details .edit-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Disabled state for inputs (after conversation starts) */
+.scenario-details .edit-input:disabled,
+.scenario-details .edit-input.disabled {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-color: var(--border-light);
+}
+
+/* Focus row gets full width input */
+.scenario-details .detail-row.focus-row {
+    margin-top: 4px;
+}
+
+.scenario-details .detail-row.focus-row .edit-input {
+    min-width: 200px;
+}
+
 /* =============================================================================
    CV UPLOAD PANEL
    ============================================================================= */

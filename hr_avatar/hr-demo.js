@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.7';
+const APP_VERSION = '1.0.8';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -172,6 +172,17 @@ let sdk = null;              // KalturaAvatarSDK instance
 let currentScenario = null;  // Currently selected scenario metadata
 let scenarioData = null;     // Loaded DPP JSON data
 let cvText = null;           // Extracted CV text (null if no CV uploaded)
+let isConversationActive = false;  // Track if conversation has started
+
+// Editable field overrides (for interview scenarios)
+// These values override the defaults from the scenario JSON when building the prompt
+let editedFields = {
+    candidate: null,   // subj.name
+    role: null,        // role.t
+    company: null,     // org.n
+    location: null,    // role.loc
+    focus: null        // mtg.focus (comma-separated string -> array)
+};
 
 // =============================================================================
 // DOM ELEMENTS
@@ -324,6 +335,7 @@ function createScenarioCard(scenario, type) {
  * Handle scenario selection.
  * Loads the DPP JSON, shows scenario details, and auto-starts the conversation.
  * If a conversation is active, prompts user to confirm switching.
+ * Resets editable fields for fresh customization.
  * @param {string} id - Scenario ID
  * @param {string} type - Category type
  */
@@ -336,6 +348,10 @@ async function selectScenario(id, type) {
         }
         sdk.end();
     }
+
+    // Reset state for new scenario
+    isConversationActive = false;
+    resetEditedFields();
 
     // Clear any previously uploaded CV (each scenario is a different candidate)
     clearCV();
@@ -379,6 +395,7 @@ async function selectScenario(id, type) {
 /**
  * Display scenario details panel based on loaded DPP data.
  * Shows different fields based on the mode (interview, post_interview, separation).
+ * For interview mode, renders editable input fields that can be customized before starting.
  */
 function showScenarioDetails() {
     if (!scenarioData) return;
@@ -398,17 +415,35 @@ function showScenarioDetails() {
     let html = `<h4>Scenario: ${currentScenario.name}</h4>`;
 
     if (isInterview) {
-        // Interview: show candidate info, role, location, duration, focus areas
+        // Interview: show editable inputs for candidate info, role, location, focus
+        // Duration is display-only
+        const focusValue = mtg?.focus?.join(', ') || '';
         html += `
-            <div class="detail-row"><span class="label">Candidate:</span><span class="value">${subj?.name || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Role:</span><span class="value">${role?.t || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Company:</span><span class="value">${org?.n || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Location:</span><span class="value">${role?.loc || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Duration:</span><span class="value">${mtg?.mins || 5} minutes</span></div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-candidate">Candidate:</label>
+                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Candidate name">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-role">Role:</label>
+                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-company">Company:</label>
+                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-location">Location:</label>
+                <input type="text" id="edit-location" class="edit-input" value="${escapeHtml(role?.loc || '')}" placeholder="Location">
+            </div>
+            <div class="detail-row">
+                <span class="label">Duration:</span>
+                <span class="value">${mtg?.mins || 5} minutes</span>
+            </div>
+            <div class="detail-row editable focus-row">
+                <label class="label" for="edit-focus">Focus:</label>
+                <input type="text" id="edit-focus" class="edit-input" value="${escapeHtml(focusValue)}" placeholder="Focus areas (comma-separated)">
+            </div>
         `;
-        if (mtg?.focus?.length) {
-            html += `<div class="detail-row"><span class="label">Focus:</span><span class="value">${mtg.focus.join(', ')}</span></div>`;
-        }
     } else if (isPostInterview) {
         // Post-Interview: show candidate, role, call type (offer vs feedback)
         const caseType = scenarioData.case?.type === 'Other'
@@ -444,8 +479,66 @@ function showScenarioDetails() {
     };
     ui.scenarioDetails.style.borderLeftColor = accentColors[mode] || 'var(--accent-warm)';
 
+    // For interview mode, attach input change listeners
+    if (isInterview) {
+        attachEditableFieldListeners();
+    }
+
     // Show CV upload panel only for interviews
     updateCVPanelVisibility(mode);
+}
+
+/**
+ * Attach event listeners to editable input fields.
+ * Updates editedFields state when user modifies values.
+ */
+function attachEditableFieldListeners() {
+    const inputs = {
+        candidate: document.getElementById('edit-candidate'),
+        role: document.getElementById('edit-role'),
+        company: document.getElementById('edit-company'),
+        location: document.getElementById('edit-location'),
+        focus: document.getElementById('edit-focus')
+    };
+
+    // Track changes to each field
+    Object.keys(inputs).forEach(key => {
+        const input = inputs[key];
+        if (input) {
+            input.addEventListener('input', () => {
+                editedFields[key] = input.value.trim() || null;
+            });
+        }
+    });
+}
+
+/**
+ * Reset edited fields to null (use scenario defaults).
+ */
+function resetEditedFields() {
+    editedFields = {
+        candidate: null,
+        role: null,
+        company: null,
+        location: null,
+        focus: null
+    };
+}
+
+/**
+ * Disable or enable editable input fields.
+ * @param {boolean} disabled - Whether to disable the fields
+ */
+function setEditableFieldsDisabled(disabled) {
+    const inputs = document.querySelectorAll('.scenario-details .edit-input');
+    inputs.forEach(input => {
+        input.disabled = disabled;
+        if (disabled) {
+            input.classList.add('disabled');
+        } else {
+            input.classList.remove('disabled');
+        }
+    });
 }
 
 // =============================================================================
@@ -455,9 +548,14 @@ function showScenarioDetails() {
 /**
  * Start the avatar conversation.
  * Initializes the SDK, clears previous transcript, and injects the DPP.
+ * Disables editable fields once conversation starts.
  */
 async function startConversation() {
     if (!currentScenario || !scenarioData) return;
+
+    // Mark conversation as active and disable editable fields
+    isConversationActive = true;
+    setEditableFieldsDisabled(true);
 
     // Reset transcript UI
     clearTranscriptUI();
@@ -471,7 +569,7 @@ async function startConversation() {
 
         // Inject the Dynamic Page Prompt after avatar loads
         // Small delay ensures the avatar is ready to receive the prompt
-        // Uses buildDynamicPrompt() to include CV data if available
+        // Uses buildDynamicPrompt() to include CV data and edited field overrides
         setTimeout(() => {
             const promptJson = buildDynamicPrompt();
             sdk.injectPrompt(promptJson);
@@ -479,6 +577,9 @@ async function startConversation() {
     } catch (error) {
         console.error('Failed to start conversation:', error);
         updateStatus('error');
+        // Re-enable fields if start failed
+        isConversationActive = false;
+        setEditableFieldsDisabled(false);
     }
 }
 
@@ -669,41 +770,59 @@ function updateCVPanelVisibility(mode) {
 }
 
 /**
- * Build the dynamic prompt including CV if available
+ * Build the dynamic prompt including CV and edited field overrides.
+ * Applies user customizations to the scenario data before sending to the avatar.
  * @returns {string} JSON string for prompt injection
  */
 function buildDynamicPrompt() {
     if (!scenarioData) return null;
 
-    // If no CV, return original scenario data
-    if (!cvText) {
-        return JSON.stringify(scenarioData);
-    }
-
-    // Clone scenario data and add CV information
+    // Clone scenario data for modifications
     const promptData = JSON.parse(JSON.stringify(scenarioData));
 
-    // Add CV text to the subject's profile notes
-    if (!promptData.subj.prof) {
-        promptData.subj.prof = {};
+    // Apply edited field overrides (if user customized them)
+    if (editedFields.candidate) {
+        promptData.subj.name = editedFields.candidate;
     }
-    if (!promptData.subj.prof.notes) {
-        promptData.subj.prof.notes = [];
+    if (editedFields.role) {
+        promptData.role.t = editedFields.role;
+    }
+    if (editedFields.company) {
+        promptData.org.n = editedFields.company;
+    }
+    if (editedFields.location) {
+        promptData.role.loc = editedFields.location;
+    }
+    if (editedFields.focus) {
+        // Convert comma-separated string to array
+        promptData.mtg = promptData.mtg || {};
+        promptData.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
     }
 
-    // Add CV context instruction
-    promptData.subj.prof.cv_summary = cvText;
-    promptData.subj.prof.notes.push(
-        'IMPORTANT: A CV/resume was provided. Review the cv_summary and ask relevant follow-up questions about their experience, skills, and background mentioned in the CV.'
-    );
+    // Add CV information if available
+    if (cvText) {
+        // Ensure profile object exists
+        if (!promptData.subj.prof) {
+            promptData.subj.prof = {};
+        }
+        if (!promptData.subj.prof.notes) {
+            promptData.subj.prof.notes = [];
+        }
 
-    // Add instruction to use CV
-    if (!promptData.inst) {
-        promptData.inst = [];
+        // Add CV context instruction
+        promptData.subj.prof.cv_summary = cvText;
+        promptData.subj.prof.notes.push(
+            'IMPORTANT: A CV/resume was provided. Review the cv_summary and ask relevant follow-up questions about their experience, skills, and background mentioned in the CV.'
+        );
+
+        // Add instruction to use CV
+        if (!promptData.inst) {
+            promptData.inst = [];
+        }
+        promptData.inst.push(
+            'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
+        );
     }
-    promptData.inst.push(
-        'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
-    );
 
     return JSON.stringify(promptData);
 }
