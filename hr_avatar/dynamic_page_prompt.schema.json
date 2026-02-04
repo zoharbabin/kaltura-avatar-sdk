@@ -80,6 +80,7 @@
           "additionalProperties": false,
           "description": "Job-relevant profile (safe to share with the avatar).",
           "properties": {
+            "cv_summary": { "type": "string", "description": "Raw CV/resume text blob (can be pasted as-is)." },
             "lic": { "type": "string", "description": "License type (if relevant)" },
             "drive_y": { "type": "number", "minimum": 0 },
             "exp": { "type": "string", "description": "Short experience summary" },
