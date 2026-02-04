@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.9';
+const APP_VERSION = '1.0.10';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -619,6 +619,11 @@ function updateButtons(state) {
  * Called after conversation ends to allow user to start fresh.
  */
 function resetToInitialState() {
+    // End SDK session and remove iframe
+    if (sdk) {
+        sdk.end();
+    }
+
     // Reset application state
     currentScenario = null;
     scenarioData = null;
