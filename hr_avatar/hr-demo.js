@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.8';
+const APP_VERSION = '1.0.9';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -253,9 +253,10 @@ function initSDK() {
         }
     });
 
-    // Conversation ended -> prompt for download
+    // Conversation ended -> prompt for download, then reset UI
     sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, () => {
         showDownloadPrompt();
+        resetToInitialState();
     });
 
     // Error handling
@@ -611,6 +612,43 @@ function updateButtons(state) {
     const hasTranscript = sdk && sdk.getTranscript().length > 0;
     ui.downloadBtn.disabled = !hasTranscript;
     ui.downloadMdBtn.disabled = !hasTranscript;
+}
+
+/**
+ * Reset UI to initial clean state (ready for new scenario selection).
+ * Called after conversation ends to allow user to start fresh.
+ */
+function resetToInitialState() {
+    // Reset application state
+    currentScenario = null;
+    scenarioData = null;
+    isConversationActive = false;
+    resetEditedFields();
+    clearCV();
+
+    // Remove active state from all scenario cards
+    document.querySelectorAll('.scenario-card').forEach(card => {
+        card.classList.remove('active');
+    });
+
+    // Hide scenario details panel
+    ui.scenarioDetails.style.display = 'none';
+    ui.scenarioDetails.innerHTML = '';
+
+    // Hide CV upload panel
+    ui.cvUploadPanel.style.display = 'none';
+
+    // Show empty state in avatar container
+    ui.avatarContainer.classList.add('empty');
+    ui.emptyState.style.display = 'block';
+
+    // Reset status display
+    ui.statusValue.textContent = 'Ready';
+    ui.statusValue.className = 'value';
+    ui.scenarioValue.textContent = 'None selected';
+
+    // Note: transcript and download buttons are intentionally kept
+    // so user can still download the conversation from the ended session
 }
 
 // =============================================================================
