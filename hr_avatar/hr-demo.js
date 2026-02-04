@@ -157,9 +157,7 @@ const ui = {
     statusValue: document.getElementById('status-value'),
     scenarioValue: document.getElementById('scenario-value'),
 
-    // Control buttons
-    startBtn: document.getElementById('start-btn'),
-    endBtn: document.getElementById('end-btn'),
+    // Download buttons
     downloadBtn: document.getElementById('download-btn'),
     downloadMdBtn: document.getElementById('download-md-btn')
 };
@@ -281,11 +279,21 @@ function createScenarioCard(scenario, type) {
 
 /**
  * Handle scenario selection.
- * Loads the DPP JSON and updates the UI to show scenario details.
+ * Loads the DPP JSON, shows scenario details, and auto-starts the conversation.
+ * If a conversation is active, prompts user to confirm switching.
  * @param {string} id - Scenario ID
  * @param {string} type - Category type
  */
 async function selectScenario(id, type) {
+    // Check if conversation is active and confirm switch
+    if (sdk && sdk.getState() === 'in-conversation') {
+        const confirmed = confirm('End the current conversation and start a new scenario?');
+        if (!confirmed) {
+            return; // User cancelled, don't switch
+        }
+        sdk.end();
+    }
+
     // Update active state in UI
     document.querySelectorAll('.scenario-card').forEach(card => {
         card.classList.remove('active');
@@ -309,7 +317,9 @@ async function selectScenario(id, type) {
 
         showScenarioDetails();
         ui.scenarioValue.textContent = currentScenario.name;
-        ui.startBtn.disabled = false;
+
+        // Auto-start the conversation
+        await startConversation();
     } catch (error) {
         console.error('Failed to load scenario:', error);
         ui.scenarioValue.textContent = 'Error loading scenario';
@@ -418,14 +428,6 @@ async function startConversation() {
     }
 }
 
-/**
- * End the current conversation.
- */
-function endConversation() {
-    sdk.end();
-    showDownloadPrompt();
-}
-
 // =============================================================================
 // UI STATE MANAGEMENT
 // =============================================================================
@@ -450,12 +452,6 @@ function updateStatus(state) {
  * @param {string} state - Current SDK state
  */
 function updateButtons(state) {
-    const inConversation = state === 'in-conversation';
-    const canStart = (state === 'ready' || state === 'ended') && currentScenario;
-
-    ui.startBtn.disabled = !canStart && !inConversation;
-    ui.endBtn.disabled = !inConversation;
-
     // Enable download buttons if transcript exists
     const hasTranscript = sdk && sdk.getTranscript().length > 0;
     ui.downloadBtn.disabled = !hasTranscript;
@@ -547,8 +543,6 @@ function escapeHtml(text) {
 // EVENT LISTENERS
 // =============================================================================
 
-ui.startBtn.addEventListener('click', startConversation);
-ui.endBtn.addEventListener('click', endConversation);
 ui.downloadBtn.addEventListener('click', () => downloadTranscript('text'));
 ui.downloadMdBtn.addEventListener('click', () => downloadTranscript('markdown'));
 

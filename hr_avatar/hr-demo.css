@@ -285,14 +285,8 @@ header p {
 }
 
 /* =============================================================================
-   CONTROLS - Action Buttons
+   BUTTONS
    ============================================================================= */
-
-.controls {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
 
 /* Button base styles */
 .btn {
@@ -313,17 +307,6 @@ header p {
     cursor: not-allowed;
 }
 
-/* Primary button (Start) */
-.btn-primary {
-    background: var(--accent-warm);
-    color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: #c9603a;
-    transform: translateY(-1px);
-}
-
 /* Secondary button (Download) */
 .btn-secondary {
     background: var(--bg-secondary);
@@ -334,16 +317,6 @@ header p {
 .btn-secondary:hover:not(:disabled) {
     background: var(--bg-card-hover);
     border-color: var(--accent-warm-light);
-}
-
-/* Danger button (End) */
-.btn-danger {
-    background: var(--accent-separation);
-    color: #fff;
-}
-
-.btn-danger:hover:not(:disabled) {
-    background: #9d4f5e;
 }
 
 /* Pulse animation for download prompt */
@@ -587,15 +560,6 @@ header p {
 
     #avatar-container {
         height: 360px;
-    }
-
-    .controls {
-        flex-direction: column;
-    }
-
-    .btn {
-        width: 100%;
-        justify-content: center;
     }
 
     .transcript-entry.avatar {
