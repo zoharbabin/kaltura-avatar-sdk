@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -316,6 +316,9 @@ async function selectScenario(id, type) {
         }
         sdk.end();
     }
+
+    // Clear any previously uploaded CV (each scenario is a different candidate)
+    clearCV();
 
     // Update active state in UI
     document.querySelectorAll('.scenario-card').forEach(card => {
@@ -641,12 +644,8 @@ function clearCV() {
  * @param {string} mode - Scenario mode
  */
 function updateCVPanelVisibility(mode) {
-    if (mode === 'interview') {
-        ui.cvUploadPanel.style.display = 'block';
-    } else {
-        ui.cvUploadPanel.style.display = 'none';
-        clearCV(); // Clear CV when switching away from interview
-    }
+    // Only show CV upload panel for interview scenarios
+    ui.cvUploadPanel.style.display = (mode === 'interview') ? 'block' : 'none';
 }
 
 /**
