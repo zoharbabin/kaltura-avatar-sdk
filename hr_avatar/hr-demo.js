@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.6';
+const APP_VERSION = '1.0.7';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -79,7 +79,7 @@ const SCENARIOS = {
             company: 'AWS',
             role: 'Software Development Engineer',
             location: 'EMEA (Hybrid)',
-            duration: '45 min'
+            duration: '5 min'
         },
         {
             id: 'interview_amazon_ads_analyst',
@@ -89,7 +89,7 @@ const SCENARIOS = {
             company: 'Amazon Ads',
             role: 'AI Specialist / Data Analyst',
             location: 'EMEA (Hybrid)',
-            duration: '45 min'
+            duration: '5 min'
         }
     ],
 

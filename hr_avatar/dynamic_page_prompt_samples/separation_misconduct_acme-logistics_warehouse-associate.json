@@ -4,7 +4,7 @@
   "org": { "n": "Acme Logistics", "tone": "firm, respectful, brief" },
   "role": { "id": "ACME-WH-ASSOC-02", "t": "Warehouse Associate", "loc": "Lisbon, PT", "type": "full_time", "shift": "Day shift" },
   "subj": { "id": "emp_11402", "name": "A. Santos", "lang": "en" },
-  "mtg": { "mins": 10, "style": "Firm, concise. Explain approved facts once, then move to logistics." },
+  "mtg": { "mins": 5, "style": "Firm, concise. Explain approved facts once, then move to logistics." },
   "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
   "case": {
     "type": "Misconduct",

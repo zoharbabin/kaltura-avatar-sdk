@@ -4,7 +4,7 @@
   "org": { "n": "McDonald's", "tone": "calm, direct, respectful" },
   "role": { "id": "MCD-CREW-001", "t": "Crew Member", "loc": "Orlando, FL", "type": "part_time" },
   "subj": { "id": "emp_77102", "name": "Jordan K.", "lang": "en" },
-  "mtg": { "mins": 10, "style": "Short sentences, patient, do not argue. Answer 'why/how' using approved points." },
+  "mtg": { "mins": 5, "style": "Short sentences, patient, do not argue. Answer 'why/how' using approved points." },
   "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
   "case": {
     "type": "Performance",

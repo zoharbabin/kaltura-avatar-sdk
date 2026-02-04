@@ -4,7 +4,7 @@
   "org": { "n": "Amazon", "tone": "calm, direct, respectful" },
   "role": { "id": "AMZ-DD-US-104", "t": "Delivery Driver", "loc": "Miami, FL", "type": "full_time" },
   "subj": { "id": "emp_88219", "name": "Jordan Lee", "lang": "en" },
-  "mtg": { "mins": 10, "style": "No small talk. Clear, respectful, patient with questions." },
+  "mtg": { "mins": 5, "style": "No small talk. Clear, respectful, patient with questions." },
   "eval": { "tag": "INTERNAL_CASE_NOTE", "dims": [] },
   "case": {
     "type": "Layoff",
