@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.17',
+    VERSION: '1.0.18',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -384,8 +384,9 @@ function initSDK() {
         }
     });
 
-    // Conversation ended -> analyze, show download prompt, reset
+    // Conversation ended -> show loading, analyze, then reset
     state.sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, async () => {
+        showAnalyzingState();
         await analyzeCall();
         highlightDownloadButton();
         resetToInitialState();
@@ -942,6 +943,29 @@ function updateDownloadButtons() {
     const hasTranscript = state.sdk?.getTranscript().length > 0;
     if (ui.downloadBtn) ui.downloadBtn.disabled = !hasTranscript;
     if (ui.downloadMdBtn) ui.downloadMdBtn.disabled = !hasTranscript;
+}
+
+/**
+ * Show analyzing state while call summary is being generated.
+ * Clears the avatar iframe and shows a loading spinner.
+ */
+function showAnalyzingState() {
+    // End SDK to clear the avatar iframe
+    if (state.sdk) {
+        state.sdk.end();
+    }
+
+    // Show loading spinner in avatar container
+    ui.avatarContainer.classList.add('empty');
+    ui.avatarContainer.innerHTML = `
+        <div class="analyzing-state">
+            <div class="spinner"></div>
+            <h3>Analyzing Call...</h3>
+            <p>Generating your call summary</p>
+        </div>
+    `;
+
+    updateStatus('analyzing...');
 }
 
 /**
