@@ -45,7 +45,7 @@ The Summary JSON Schema to follow:
         "session_stats": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.interview_state.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.interview_state.times_code_was_run\n- hints_given = DPP.interview_state.hints_given_so_far\n- tests_passed/total from DPP.last_execution (or 0 if null)",
+          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.session.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.session.times_code_was_run\n- hints_given = DPP.session.hints_given\n- tests_passed/total from DPP.last_execution (or 0 if null)",
           "properties": {
             "elapsed_minutes": { "type": "integer", "minimum": 0, "description": "Actual session duration in minutes." },
             "target_minutes": { "type": "integer", "minimum": 0, "description": "Target session duration from DPP.mtg.mins." },
