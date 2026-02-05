@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.18',
+    VERSION: '1.0.19',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -1005,7 +1005,8 @@ function resetToInitialState() {
     ui.cvUploadPanel.style.display = 'none';
     hideStartCallPanel();
 
-    // Show empty state
+    // Show empty state (clear any existing content like analyzing spinner first)
+    ui.avatarContainer.innerHTML = '';
     ui.avatarContainer.classList.add('empty');
     ui.avatarContainer.appendChild(ui.emptyState);
     ui.emptyState.style.display = '';
