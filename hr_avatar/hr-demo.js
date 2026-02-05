@@ -14,7 +14,13 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.12';
+const APP_VERSION = '1.0.13';
+
+// =============================================================================
+// CALL ANALYSIS API CONFIGURATION
+// =============================================================================
+const ANALYSIS_API_URL = 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com';
+let lastCallSummary = null;  // Store last call summary for display/download
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -253,8 +259,10 @@ function initSDK() {
         }
     });
 
-    // Conversation ended -> prompt for download, then reset UI
-    sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, () => {
+    // Conversation ended -> analyze call, prompt for download, then reset UI
+    sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, async () => {
+        // Analyze the call before resetting
+        await analyzeCall();
         showDownloadPrompt();
         resetToInitialState();
     });
@@ -894,6 +902,225 @@ function buildDynamicPrompt() {
     }
 
     return JSON.stringify(promptData);
+}
+
+// =============================================================================
+// CALL ANALYSIS
+// =============================================================================
+
+/**
+ * Analyze the completed call using the Lambda API.
+ * Sends transcript and DPP to get a structured summary.
+ */
+async function analyzeCall() {
+    if (!sdk || !scenarioData) {
+        console.log('No call to analyze');
+        return;
+    }
+
+    const transcript = sdk.getTranscript();
+    if (!transcript || transcript.length === 0) {
+        console.log('Empty transcript, skipping analysis');
+        return;
+    }
+
+    // Show analyzing state
+    updateStatus('analyzing...');
+
+    try {
+        // Build the DPP with any user edits applied
+        const dpp = buildDPPForAnalysis();
+
+        // Format transcript for the API
+        const formattedTranscript = transcript.map(entry => ({
+            role: entry.speaker === 'Nora (HR)' ? 'assistant' : 'user',
+            content: entry.text
+        }));
+
+        // Call the analysis API
+        const response = await fetch(ANALYSIS_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                transcript: formattedTranscript,
+                dpp: dpp
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            lastCallSummary = result.summary;
+            console.log('Call analysis complete:', lastCallSummary);
+            showCallSummary(result.summary);
+        } else {
+            console.error('Analysis failed:', result.error);
+            showAnalysisError(result.error);
+        }
+    } catch (error) {
+        console.error('Failed to analyze call:', error);
+        showAnalysisError(error.message);
+    }
+}
+
+/**
+ * Build the DPP object for analysis, including any user edits.
+ * @returns {Object} DPP object for the analysis API
+ */
+function buildDPPForAnalysis() {
+    if (!scenarioData) return {};
+
+    // Clone scenario data
+    const dpp = JSON.parse(JSON.stringify(scenarioData));
+
+    // Apply edited field overrides
+    if (editedFields.candidate) dpp.subj.name = editedFields.candidate;
+    if (editedFields.role) dpp.role.t = editedFields.role;
+    if (editedFields.company) dpp.org.n = editedFields.company;
+    if (editedFields.location) dpp.role.loc = editedFields.location;
+    if (editedFields.focus) {
+        dpp.mtg = dpp.mtg || {};
+        dpp.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
+    }
+
+    // Add CV flag if provided
+    if (cvText) {
+        dpp.subj = dpp.subj || {};
+        dpp.subj.prof = dpp.subj.prof || {};
+        dpp.subj.prof.cv_summary = cvText;
+    }
+
+    return dpp;
+}
+
+/**
+ * Display the call summary in a modal.
+ * @param {Object} summary - The call summary object
+ */
+function showCallSummary(summary) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('summary-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'summary-modal';
+        modal.className = 'summary-modal';
+        document.body.appendChild(modal);
+    }
+
+    // Build summary HTML
+    const fitScore = summary.fit?.score_0_100;
+    const fitClass = fitScore >= 70 ? 'good' : fitScore >= 50 ? 'ok' : 'poor';
+
+    modal.innerHTML = `
+        <div class="summary-modal-content">
+            <div class="summary-header">
+                <h3>Call Summary</h3>
+                <button class="summary-close-btn" onclick="closeSummaryModal()">&times;</button>
+            </div>
+            <div class="summary-body">
+                <div class="summary-section">
+                    <h4>Overview</h4>
+                    <p>${escapeHtml(summary.overview || 'No overview available')}</p>
+                </div>
+
+                ${summary.fit?.score_0_100 !== null ? `
+                <div class="summary-section">
+                    <h4>Fit Assessment</h4>
+                    <div class="fit-score ${fitClass}">
+                        <span class="score-value">${summary.fit.score_0_100}</span>
+                        <span class="score-label">/ 100</span>
+                    </div>
+                    ${summary.fit.dims?.length ? `
+                    <div class="fit-dims">
+                        ${summary.fit.dims.map(d => `
+                            <div class="dim">
+                                <span class="dim-name">${escapeHtml(d.id || d.name || 'Unknown')}</span>
+                                <span class="dim-score">${d.score_1_5}/5</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.gaps?.length ? `
+                <div class="summary-section">
+                    <h4>Gaps & Follow-ups</h4>
+                    <ul class="gaps-list">
+                        ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || JSON.stringify(g))}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${summary.next_steps?.length ? `
+                <div class="summary-section">
+                    <h4>Next Steps</h4>
+                    <ul class="next-steps-list">
+                        ${summary.next_steps.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                <div class="summary-section">
+                    <h4>Call Quality</h4>
+                    <div class="cq-badges">
+                        <span class="badge">Emotion: ${summary.cq?.emo || 'unknown'}</span>
+                        <span class="badge">Tone: ${summary.cq?.tone || 'unknown'}</span>
+                        <span class="badge">Engagement: ${summary.cq?.eng || 'unknown'}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-footer">
+                <button class="btn btn-secondary" onclick="downloadCallSummary()">Download JSON</button>
+                <button class="btn btn-primary" onclick="closeSummaryModal()">Close</button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+/**
+ * Show an error message when analysis fails.
+ * @param {string} error - Error message
+ */
+function showAnalysisError(error) {
+    console.error('Analysis error:', error);
+    // Optionally show a toast or small notification
+    // For now, just log it - the user can still download the transcript
+}
+
+/**
+ * Close the summary modal.
+ */
+function closeSummaryModal() {
+    const modal = document.getElementById('summary-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Download the call summary as JSON.
+ */
+function downloadCallSummary() {
+    if (!lastCallSummary) return;
+
+    const scenarioName = currentScenario?.name?.replace(/\s+/g, '-').toLowerCase() || 'call';
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `call-summary-${scenarioName}-${date}.json`;
+
+    const blob = new Blob([JSON.stringify(lastCallSummary, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
 }
 
 // =============================================================================

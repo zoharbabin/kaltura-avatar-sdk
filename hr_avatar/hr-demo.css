@@ -692,6 +692,200 @@ header p {
     cursor: not-allowed;
 }
 
+/* =============================================================================
+   CALL SUMMARY MODAL
+   ============================================================================= */
+
+.summary-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.summary-modal-content {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-hover);
+}
+
+.summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.summary-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.summary-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.summary-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.summary-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.summary-section {
+    margin-bottom: 20px;
+}
+
+.summary-section:last-child {
+    margin-bottom: 0;
+}
+
+.summary-section h4 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.summary-section p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+/* Fit Score */
+.fit-score {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+}
+
+.fit-score.good {
+    background: linear-gradient(135deg, var(--accent-interview-light), #cce3d5);
+}
+
+.fit-score.ok {
+    background: linear-gradient(135deg, #f5e6c8, #faf0dc);
+}
+
+.fit-score.poor {
+    background: linear-gradient(135deg, var(--accent-separation-light), #f0c8cf);
+}
+
+.fit-score .score-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.fit-score .score-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* Fit Dimensions */
+.fit-dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fit-dims .dim {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+}
+
+.fit-dims .dim-name {
+    color: var(--text-secondary);
+}
+
+.fit-dims .dim-score {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Lists */
+.gaps-list,
+.next-steps-list {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.gaps-list li,
+.next-steps-list li {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+/* Call Quality Badges */
+.cq-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cq-badges .badge {
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Summary Footer */
+.summary-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-light);
+}
+
+.summary-footer .btn-primary {
+    background: var(--accent-interview);
+    color: white;
+}
+
+.summary-footer .btn-primary:hover {
+    background: #5a7a6b;
+}
+
 /* Start Interview Button */
 .btn-start-interview {
     width: 100%;
