@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.10';
+const APP_VERSION = '1.0.11';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -644,8 +644,10 @@ function resetToInitialState() {
     ui.cvUploadPanel.style.display = 'none';
 
     // Show empty state in avatar container
+    // Re-append in case it was detached, then make visible
     ui.avatarContainer.classList.add('empty');
-    ui.emptyState.style.display = 'block';
+    ui.avatarContainer.appendChild(ui.emptyState);
+    ui.emptyState.style.display = '';
 
     // Reset status display
     ui.statusValue.textContent = 'Ready';
