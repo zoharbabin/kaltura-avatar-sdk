@@ -10,11 +10,11 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.3',
+    VERSION: '1.0.4',
 
-    // Kaltura Avatar SDK (same as HR demo)
+    // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
-    FLOW_ID: 'agent-15',
+    FLOW_ID: 'agent-16',
 
     // Code context injection timing
     DEBOUNCE_MS: 3000,        // Wait 3s after typing stops
