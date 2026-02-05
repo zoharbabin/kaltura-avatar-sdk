@@ -162,30 +162,21 @@ Refresh the page - your scenario appears in the sidebar automatically.
 
 ## Configuration
 
-### SDK Configuration (hr-demo.js)
+All configuration is centralized in the `CONFIG` object at the top of `hr-demo.js`:
 
 ```javascript
-// Line 234-238
-sdk = new KalturaAvatarSDK({
-    clientId: '115767973963657880005',  // HR Demo client
-    flowId: 'agent-15',                  // Nora HR agent
-    container: '#avatar-container'
+const CONFIG = Object.freeze({
+    VERSION: '1.0.16',                    // Bump to bust browser cache
+    CLIENT_ID: '115767973963657880005',   // Kaltura Avatar client
+    FLOW_ID: 'agent-15',                   // Nora HR agent
+    ANALYSIS_API_URL: 'https://...',       // Lambda API endpoint
+    PROMPT_INJECTION_DELAY_MS: 2000,
+    AVATAR_NAME: 'Nora (HR)',
+    PDFJS_WORKER_URL: '...'
 });
 ```
 
-### Analysis API (hr-demo.js)
-
-```javascript
-// Line 22
-const ANALYSIS_API_URL = 'https://your-api-gateway-url.amazonaws.com';
-```
-
-### Version (hr-demo.js)
-
-```javascript
-// Line 17 - Bump when making changes to bust browser cache
-const APP_VERSION = '1.0.14';
-```
+To customize for your deployment, update the values in `CONFIG`.
 
 ## Schemas
 
