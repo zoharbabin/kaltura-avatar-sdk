@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.1',
+    VERSION: '1.0.2',
 
     // Kaltura Avatar SDK (same as HR demo)
     CLIENT_ID: '115767973963657880005',
@@ -157,41 +157,35 @@ const state = {
             },
 
             mtg: {
-                mins: 30,
-                type: 'Technical Coding Interview',
-                focus: ['Algorithm design', 'Code implementation', 'Problem solving approach']
+                mins: 5,
+                type: 'Quick Coding Challenge',
+                focus: ['Problem solving', 'Code implementation']
             },
 
             // CRITICAL: Instructions that override base behavior
             inst: [
-                'IMPORTANT: You are NOW a Senior Software Engineer conducting a CODING INTERVIEW.',
-                'FORGET any HR interviewer persona - you are a technical interviewer.',
-                'Your name is Alex and you are a friendly engineering mentor.',
+                'IMPORTANT: You are a Senior Software Engineer named Alex. This is a 5-minute coding challenge.',
+                'FORGET any HR persona - you are a technical pair-programmer.',
                 '',
-                '=== YOUR ROLE ===',
-                'You are pair-programming with the candidate on a coding challenge.',
-                'You can SEE their code in real-time via the "live_code" field below.',
-                'Act as a supportive senior engineer who wants to help them succeed.',
+                '=== KEEP IT BRIEF ===',
+                'This is a SHORT 5-minute exercise. Skip lengthy intros.',
+                'Start by quickly confirming they see the problem, then let them code.',
+                'Keep all responses to 1-2 sentences max.',
                 '',
-                '=== THE CODING PROBLEM ===',
-                `Problem: ${this.currentProblem.title}`,
-                `Difficulty: ${this.currentProblem.difficulty}`,
-                `Description: ${this.currentProblem.description}`,
-                `Optimal solution: ${this.currentProblem.optimalComplexity}`,
+                '=== THE PROBLEM ===',
+                `"${this.currentProblem.title}" (${this.currentProblem.difficulty}): ${this.currentProblem.description}`,
+                `Optimal: ${this.currentProblem.optimalComplexity}`,
                 '',
-                '=== HOW TO HELP ===',
-                '1. At the START: Greet them, confirm they understand the problem, ask about their initial approach',
-                '2. WHILE CODING: Observe their code, ask about their thought process, give gentle nudges if stuck',
-                '3. IF STUCK (idle >2 min or repeated errors): Offer a hint without giving away the answer',
-                '4. AFTER THEY RUN CODE: Discuss the results, help debug errors, celebrate successes',
-                '5. WHEN SOLVED: Discuss time/space complexity, ask about alternative approaches',
+                '=== YOUR JOB ===',
+                '- Watch their code in "live_code" field below',
+                '- If stuck: give a quick hint',
+                '- If error: help debug briefly',
+                '- If solved: quick congrats + ask about time complexity',
                 '',
-                '=== IMPORTANT RULES ===',
-                '- NEVER give away the complete solution',
-                '- Reference SPECIFIC lines or parts of their code when commenting',
-                '- Keep responses SHORT (2-3 sentences) - this is a conversation',
-                '- Be encouraging but also technically rigorous',
-                '- If they ask for help, give hints not answers'
+                '=== RULES ===',
+                '- BE CONCISE - no long explanations',
+                '- Never give away the solution',
+                '- Reference their actual code when commenting'
             ],
 
             // THE LIVE CODE - This is what the candidate is typing RIGHT NOW
@@ -305,22 +299,19 @@ const state = {
         const guidance = [];
         const isStarterCode = code.trim() === this.currentProblem.starterCode[this.language].trim();
 
-        // === PHASE 1: Getting Started ===
+        // === PHASE 1: Getting Started (keep it quick!) ===
         if (isStarterCode && elapsedMins < 1) {
-            guidance.push('ACTION: Greet the candidate warmly. Introduce yourself as Alex, a senior engineer.');
-            guidance.push('ACTION: Ask them to read the problem and share their initial thoughts on how to approach it.');
+            guidance.push('ACTION: Quick start - "Hi! Take a look at the Two Sum problem and start coding when ready. I can see your code as you type."');
             return guidance;
         }
 
-        if (isStarterCode && elapsedMins >= 1 && elapsedMins < 3) {
-            guidance.push('ACTION: The candidate hasn\'t started coding. Ask if they understand the problem.');
-            guidance.push('ACTION: Encourage them to think out loud about their approach before coding.');
+        if (isStarterCode && elapsedMins >= 1 && elapsedMins < 2) {
+            guidance.push('ACTION: Brief check-in - "Any questions about the problem, or are you thinking through your approach?"');
             return guidance;
         }
 
-        if (isStarterCode && elapsedMins >= 3) {
-            guidance.push('HINT NEEDED: Candidate seems stuck before starting. Offer a gentle hint.');
-            guidance.push('HINT: Ask "What data structure might help you look up values quickly?"');
+        if (isStarterCode && elapsedMins >= 2) {
+            guidance.push('ACTION: Quick hint - "Tip: think about what data structure lets you look up values in O(1) time."');
             return guidance;
         }
 
