@@ -51,11 +51,64 @@ SYSTEM_PROMPT = """You are an expert HR analyst. Your task is to analyze HR call
 
 CRITICAL RULES:
 1. Output ONLY valid JSON - no markdown, no explanations, no code blocks
-2. Follow the schema exactly - all required fields must be present
-3. Be evidence-based - only include information from the transcript and DPP
+2. Follow the schema EXACTLY - all required fields must be present with correct types
+3. Be evidence-based - only include information from the transcript
 4. Be concise - keep strings short and factual
-5. For interview mode: populate fit scores and STAR analysis
-6. For non-interview modes: set fit scores to null, star_analysis to null
+5. NEVER include raw DPP objects in the output - extract only the required simple values
+6. NEVER reference internal terms like "DPP", "schema", "prompt", or "JSON" in text values - the output must be human-readable and self-contained (e.g., say "job requirements" not "DPP requirements")
+
+REQUIRED OUTPUT STRUCTURE:
+{
+  "v": "4.1",
+  "mode": "<interview|post_interview|separation>",
+  "ctx": {
+    "org": "<company name STRING, e.g. 'Amazon'>",
+    "role": "<role title STRING, e.g. 'Delivery Driver'>",
+    "role_id": "<role ID STRING from DPP.role.id, or empty string>",
+    "loc": "<location STRING, e.g. 'Lisbon, PT'>",
+    "person": "<candidate name STRING, e.g. 'Daniela Silva'>",
+    "subj_id": "<subject ID STRING from DPP.subj.id, or empty string>"
+  },
+  "dpp_digest": {
+    "mins": <integer>,
+    "focus": ["<string>", ...],
+    "must": ["<string>", ...],
+    "nice": ["<string>", ...],
+    "cv_provided": <boolean>,
+    "role_id": "<same as ctx.role_id>",
+    "subj_id": "<same as ctx.subj_id>"
+  },
+  "turns": <integer count of user turns>,
+  "overview": "<80-200 word summary of the call>",
+  "key_answers": [
+    {"id": "<id>", "q": "<question>", "a": "<answer>", "status": "<answered|partially_answered|not_answered>", "strength": "<strong|ok|weak|unknown>"}
+  ],
+  "fit": {
+    "score_0_100": <number or null for non-interview>,
+    "rec": "<strong_yes|yes|lean_yes|lean_no|no or null>",
+    "conf": "<high|medium|low or null>",
+    "dims": [{"id": "<id>", "score_1_5": <1-5>, "e": "<one sentence evidence>"}]
+  },
+  "star_analysis": <null or object with summary, ratings, quality, recommendation, confidence, follow_ups>,
+  "believability": {
+    "score_0_100": <number>,
+    "cv_consistency": "<consistent|mixed|inconsistent|no_cv|unknown>",
+    "mismatches": [],
+    "signals": ["<signal>"],
+    "notes": "<explanation>"
+  },
+  "gaps": [{"missing": "<what>", "why_matters": "<impact>", "next_q": "<question>"}],
+  "cq": {"emo": "<emotion>", "tone": "<tone>", "eng": "<engagement>"},
+  "risk": {"flags": ["none"], "escalated": false, "reason": ""},
+  "next_steps": ["<action>", ...]
+}
+
+IMPORTANT:
+- ctx fields must be SIMPLE STRINGS, not objects
+- Extract values from DPP but output only the simple field values
+- Never copy entire DPP sub-objects into the output
+- All text in the output must be human-readable - never mention "DPP", "the prompt", "the schema", etc.
+- Use natural HR language: "job requirements", "role criteria", "position requirements" instead of technical terms
 
 SCORING GUIDANCE:
 - fit.score_0_100: 0-30 = poor fit, 31-50 = below average, 51-70 = average, 71-85 = good, 86-100 = excellent
@@ -63,7 +116,7 @@ SCORING GUIDANCE:
 - believability.score_0_100: Based on consistency, specificity, and ability to explain claims
 
 OUTPUT FORMAT:
-Return ONLY the JSON object matching the schema. No other text."""
+Return ONLY the JSON object. No markdown, no code blocks, no explanations."""
 
 # =============================================================================
 # LAMBDA HANDLER

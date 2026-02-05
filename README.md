@@ -274,14 +274,25 @@ sdk.clearTranscript();
 
 ## HR Avatar Demo
 
-The `hr_avatar/` folder contains a complete HR use case demo with interview, post-interview, and separation scenarios.
+The `hr_avatar/` folder contains a complete HR use case demo with interview, post-interview, and separation scenarios. See [`hr_avatar/README.md`](hr_avatar/README.md) for detailed documentation.
 
 ### Features
 
-- **Interview Scenarios**: Phone screen simulations for various roles
+- **Interview Scenarios**: Phone screen simulations for various roles (drivers, engineers, analysts)
 - **Post-Interview Calls**: Job offer and rejection feedback calls
 - **Separation Meetings**: Layoff, performance, and misconduct terminations
-- **Live Transcript**: Real-time conversation recording with download
+- **CV Upload**: Upload candidate resumes (PDF) for personalized interviews
+- **Editable Fields**: Customize candidate name, role, company, location before starting
+- **Live Transcript**: Real-time conversation recording with TXT/MD download
+- **AI Call Analysis**: Automatic call summary generation using AWS Bedrock
+
+### Quick Start
+
+```bash
+cd hr_avatar
+python3 -m http.server 8080
+# Open http://localhost:8080
+```
 
 ### Dynamic Page Prompt (DPP)
 
@@ -304,14 +315,25 @@ sdk.injectPrompt(JSON.stringify(scenarioData));
   "v": "2",
   "mode": "interview | post_interview | separation",
   "org": { "n": "Company Name", "tone": "warm, professional" },
-  "role": { "t": "Job Title", "loc": "Location" },
-  "subj": { "name": "Person Name" },
+  "role": { "t": "Job Title", "loc": "Location", "must": ["requirement"] },
+  "subj": { "name": "Person Name", "id": "CAND-001" },
   "mtg": { "mins": 5, "focus": ["topic1", "topic2"] },
   "case": { "type": "Layoff", "talk": ["Approved talking point"] }
 }
 ```
 
 See `hr_avatar/dynamic_page_prompt.schema.json` for the complete schema.
+
+### Call Analysis Backend
+
+The HR demo includes a serverless backend for AI-powered call analysis:
+
+```bash
+cd hr_avatar/lambda
+./deploy.sh  # Deploys to AWS Lambda + API Gateway
+```
+
+See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment details.
 
 ### Adding New Scenarios
 
@@ -321,25 +343,44 @@ See `hr_avatar/dynamic_page_prompt.schema.json` for the complete schema.
 
 ## Files
 
-| File | Size | Use |
-|------|------|-----|
-| `kaltura-avatar-sdk.min.js` | ~4KB | Production (minified) |
-| `kaltura-avatar-sdk.js` | ~12KB | Development (readable) |
-| `kaltura-avatar-sdk.d.ts` | ~4KB | TypeScript definitions |
-| `index.html` | ~2KB | Demo page |
-| `demo.css` | ~3KB | Demo styles |
-| `demo.js` | ~4KB | Demo JavaScript |
+### SDK Core
 
-### HR Avatar Demo Files
+| File | Size | Description |
+|------|------|-------------|
+| `kaltura-avatar-sdk.min.js` | ~4KB | Production (minified) |
+| `kaltura-avatar-sdk.js` | ~12KB | Development (readable, documented) |
+| `kaltura-avatar-sdk.d.ts` | ~4KB | TypeScript definitions |
+
+### Basic Demo
 
 | File | Description |
 |------|-------------|
+| `index.html` | Simple demo page |
+| `demo.js` | Basic SDK usage example |
+| `demo.css` | Demo styles |
+
+### HR Avatar Demo
+
+| File | Description |
+|------|-------------|
+| `hr_avatar/README.md` | Comprehensive HR demo documentation |
 | `hr_avatar/index.html` | HR demo page |
-| `hr_avatar/hr-demo.js` | HR demo application logic |
-| `hr_avatar/hr-demo.css` | HR demo styles |
+| `hr_avatar/hr-demo.js` | Application logic (scenarios, SDK integration, analysis) |
+| `hr_avatar/hr-demo.css` | Styles (warm professional theme) |
 | `hr_avatar/base_prompt.txt` | Base system prompt for Nora HR avatar |
-| `hr_avatar/dynamic_page_prompt.schema.json` | JSON Schema for DPP v2 |
+| `hr_avatar/dynamic_page_prompt.schema.json` | DPP v2 JSON Schema |
+| `hr_avatar/call_summary.schema.json` | Call analysis output schema (v4.1) |
 | `hr_avatar/dynamic_page_prompt_samples/` | Sample scenario JSON files |
+
+### Lambda Backend
+
+| File | Description |
+|------|-------------|
+| `hr_avatar/lambda/README.md` | Lambda deployment guide |
+| `hr_avatar/lambda/lambda_function.py` | Bedrock Claude analysis function |
+| `hr_avatar/lambda/deploy.sh` | Automated deployment script |
+| `hr_avatar/lambda/cleanup.sh` | Resource cleanup script |
+| `hr_avatar/lambda/*.json` | IAM policy files |
 
 ## Browser Support
 

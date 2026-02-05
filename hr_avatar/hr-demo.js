@@ -14,13 +14,14 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.13';
+const APP_VERSION = '1.0.14';
 
 // =============================================================================
 // CALL ANALYSIS API CONFIGURATION
 // =============================================================================
 const ANALYSIS_API_URL = 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com';
 let lastCallSummary = null;  // Store last call summary for display/download
+let lastScenarioName = null; // Store scenario name for download filename (survives reset)
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -924,6 +925,9 @@ async function analyzeCall() {
         return;
     }
 
+    // Store scenario name before reset happens (for download filename)
+    lastScenarioName = currentScenario?.name || 'call';
+
     // Show analyzing state
     updateStatus('analyzing...');
 
@@ -1108,7 +1112,7 @@ function closeSummaryModal() {
 function downloadCallSummary() {
     if (!lastCallSummary) return;
 
-    const scenarioName = currentScenario?.name?.replace(/\s+/g, '-').toLowerCase() || 'call';
+    const scenarioName = (lastScenarioName || 'call').replace(/\s+/g, '-').toLowerCase();
     const date = new Date().toISOString().slice(0, 10);
     const filename = `call-summary-${scenarioName}-${date}.json`;
 
