@@ -693,6 +693,49 @@ header p {
 }
 
 /* =============================================================================
+   START CALL PANEL (for non-interview scenarios)
+   ============================================================================= */
+
+.start-call-panel {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    border: 1px solid var(--border-light);
+    border-left: 4px solid var(--panel-accent, var(--accent-warm));
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.btn-start-call {
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--panel-accent, var(--accent-warm)), var(--panel-accent, var(--accent-warm)));
+    color: white;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-start-call:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    filter: brightness(1.1);
+}
+
+.btn-start-call:disabled,
+.btn-start-call.disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* =============================================================================
    CALL SUMMARY MODAL
    ============================================================================= */
 

@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.14';
+const APP_VERSION = '1.0.15';
 
 // =============================================================================
 // CALL ANALYSIS API CONFIGURATION
@@ -181,14 +181,15 @@ let scenarioData = null;     // Loaded DPP JSON data
 let cvText = null;           // Extracted CV text (null if no CV uploaded)
 let isConversationActive = false;  // Track if conversation has started
 
-// Editable field overrides (for interview scenarios)
+// Editable field overrides (for all scenario types)
 // These values override the defaults from the scenario JSON when building the prompt
 let editedFields = {
-    candidate: null,   // subj.name
-    role: null,        // role.t
-    company: null,     // org.n
-    location: null,    // role.loc
-    focus: null        // mtg.focus (comma-separated string -> array)
+    candidate: null,   // subj.name (all modes)
+    role: null,        // role.t (all modes)
+    company: null,     // org.n (all modes)
+    location: null,    // role.loc (interview only)
+    focus: null,       // mtg.focus (interview only, comma-separated string -> array)
+    effective: null    // case.eff (separation only)
 };
 
 // =============================================================================
@@ -391,11 +392,8 @@ async function selectScenario(id, type) {
         showScenarioDetails();
         ui.scenarioValue.textContent = currentScenario.name;
 
-        // For interview scenarios, wait for user to click Start (allows CV upload)
-        // For other scenarios, auto-start the conversation
-        if (scenarioData.mode !== 'interview') {
-            await startConversation();
-        }
+        // All scenarios now show a start button to allow editing fields first
+        // CV upload is only shown for interview scenarios
     } catch (error) {
         console.error('Failed to load scenario:', error);
         ui.scenarioValue.textContent = 'Error loading scenario';
@@ -455,26 +453,59 @@ function showScenarioDetails() {
             </div>
         `;
     } else if (isPostInterview) {
-        // Post-Interview: show candidate, role, call type (offer vs feedback)
+        // Post-Interview: editable candidate, role, company; read-only call type and duration
         const caseType = scenarioData.case?.type === 'Other'
             ? (scenarioData.case?.talk?.[0]?.toLowerCase().includes('offer') ? 'Offer Call' : 'Feedback Call')
             : scenarioData.case?.type;
         html += `
-            <div class="detail-row"><span class="label">Candidate:</span><span class="value">${subj?.name || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Role:</span><span class="value">${role?.t || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Company:</span><span class="value">${org?.n || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Call Type:</span><span class="value">${caseType}</span></div>
-            <div class="detail-row"><span class="label">Duration:</span><span class="value">${mtg?.mins || 5} minutes</span></div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-candidate">Candidate:</label>
+                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Candidate name">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-role">Role:</label>
+                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-company">Company:</label>
+                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
+            </div>
+            <div class="detail-row">
+                <span class="label">Call Type:</span>
+                <span class="value">${caseType}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Duration:</span>
+                <span class="value">${mtg?.mins || 5} minutes</span>
+            </div>
         `;
     } else if (isSeparation) {
-        // Separation: show employee, type, effective date, immediate flag
+        // Separation: editable employee, role, company, effective date; read-only type and immediate
         html += `
-            <div class="detail-row"><span class="label">Employee:</span><span class="value">${subj?.name || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Role:</span><span class="value">${role?.t || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Company:</span><span class="value">${org?.n || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Type:</span><span class="value">${scenarioData.case?.type || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Effective:</span><span class="value">${scenarioData.case?.eff || 'N/A'}</span></div>
-            <div class="detail-row"><span class="label">Immediate:</span><span class="value">${scenarioData.case?.imm ? 'Yes' : 'No'}</span></div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-candidate">Employee:</label>
+                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Employee name">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-role">Role:</label>
+                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-company">Company:</label>
+                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
+            </div>
+            <div class="detail-row">
+                <span class="label">Type:</span>
+                <span class="value">${scenarioData.case?.type || 'N/A'}</span>
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-effective">Effective:</label>
+                <input type="text" id="edit-effective" class="edit-input" value="${escapeHtml(scenarioData.case?.eff || '')}" placeholder="Effective date">
+            </div>
+            <div class="detail-row">
+                <span class="label">Immediate:</span>
+                <span class="value">${scenarioData.case?.imm ? 'Yes' : 'No'}</span>
+            </div>
         `;
     }
 
@@ -489,18 +520,17 @@ function showScenarioDetails() {
     };
     ui.scenarioDetails.style.borderLeftColor = accentColors[mode] || 'var(--accent-warm)';
 
-    // For interview mode, attach input change listeners
-    if (isInterview) {
-        attachEditableFieldListeners();
-    }
+    // Attach input change listeners for all modes with editable fields
+    attachEditableFieldListeners();
 
-    // Show CV upload panel only for interviews
+    // Show CV upload panel only for interviews, start button panel for others
     updateCVPanelVisibility(mode);
 }
 
 /**
  * Attach event listeners to editable input fields.
  * Updates editedFields state when user modifies values.
+ * Works for all scenario modes (interview, post_interview, separation).
  */
 function attachEditableFieldListeners() {
     const inputs = {
@@ -508,7 +538,8 @@ function attachEditableFieldListeners() {
         role: document.getElementById('edit-role'),
         company: document.getElementById('edit-company'),
         location: document.getElementById('edit-location'),
-        focus: document.getElementById('edit-focus')
+        focus: document.getElementById('edit-focus'),
+        effective: document.getElementById('edit-effective')
     };
 
     // Track changes to each field
@@ -531,7 +562,8 @@ function resetEditedFields() {
         role: null,
         company: null,
         location: null,
-        focus: null
+        focus: null,
+        effective: null
     };
 }
 
@@ -651,8 +683,9 @@ function resetToInitialState() {
     ui.scenarioDetails.style.display = 'none';
     ui.scenarioDetails.innerHTML = '';
 
-    // Hide CV upload panel
+    // Hide CV upload panel and start call panel
     ui.cvUploadPanel.style.display = 'none';
+    hideStartCallPanel();
 
     // Show empty state in avatar container
     // Re-append in case it was detached, then make visible
@@ -839,12 +872,80 @@ function clearCV() {
 }
 
 /**
- * Show or hide CV upload panel based on scenario type
+ * Show or hide CV upload panel and start button based on scenario type.
+ * Interview mode: Shows CV upload panel with start button.
+ * Other modes: Shows just a start button panel (no CV upload).
  * @param {string} mode - Scenario mode
  */
 function updateCVPanelVisibility(mode) {
-    // Only show CV upload panel for interview scenarios
-    ui.cvUploadPanel.style.display = (mode === 'interview') ? 'block' : 'none';
+    if (mode === 'interview') {
+        // Interview: show full CV upload panel with start button
+        ui.cvUploadPanel.style.display = 'block';
+        hideStartCallPanel();
+    } else {
+        // Post-interview/Separation: hide CV upload, show simple start button
+        ui.cvUploadPanel.style.display = 'none';
+        showStartCallPanel(mode);
+    }
+}
+
+/**
+ * Show a simple start button panel for non-interview scenarios.
+ * @param {string} mode - Scenario mode ('post_interview' or 'separation')
+ */
+function showStartCallPanel(mode) {
+    // Check if panel already exists
+    let panel = document.getElementById('start-call-panel');
+    if (!panel) {
+        // Create the panel
+        panel = document.createElement('div');
+        panel.id = 'start-call-panel';
+        panel.className = 'start-call-panel';
+        panel.innerHTML = `
+            <button class="btn btn-start-call" id="start-call-btn">
+                <span>&#9654;</span> Start Call
+            </button>
+        `;
+        // Insert after scenario details
+        ui.scenarioDetails.after(panel);
+
+        // Attach event listener
+        document.getElementById('start-call-btn').addEventListener('click', async () => {
+            setStartCallPanelDisabled(true);
+            setEditableFieldsDisabled(true);
+            await startConversation();
+        });
+    }
+
+    // Apply accent color based on mode
+    const accentColors = {
+        post_interview: 'var(--accent-post-interview)',
+        separation: 'var(--accent-separation)'
+    };
+    panel.style.setProperty('--panel-accent', accentColors[mode] || 'var(--accent-warm)');
+    panel.style.display = 'block';
+}
+
+/**
+ * Hide the start call panel (used when switching scenarios).
+ */
+function hideStartCallPanel() {
+    const panel = document.getElementById('start-call-panel');
+    if (panel) {
+        panel.style.display = 'none';
+    }
+}
+
+/**
+ * Enable or disable the start call panel button.
+ * @param {boolean} disabled
+ */
+function setStartCallPanelDisabled(disabled) {
+    const btn = document.getElementById('start-call-btn');
+    if (btn) {
+        btn.disabled = disabled;
+        btn.classList.toggle('disabled', disabled);
+    }
 }
 
 /**
@@ -875,6 +976,11 @@ function buildDynamicPrompt() {
         // Convert comma-separated string to array
         promptData.mtg = promptData.mtg || {};
         promptData.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
+    }
+    if (editedFields.effective) {
+        // For separation scenarios - effective date
+        promptData.case = promptData.case || {};
+        promptData.case.eff = editedFields.effective;
     }
 
     // Add CV information if available
@@ -987,6 +1093,10 @@ function buildDPPForAnalysis() {
     if (editedFields.focus) {
         dpp.mtg = dpp.mtg || {};
         dpp.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
+    }
+    if (editedFields.effective) {
+        dpp.case = dpp.case || {};
+        dpp.case.eff = editedFields.effective;
     }
 
     // Add CV flag if provided
