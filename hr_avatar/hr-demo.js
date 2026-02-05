@@ -7,45 +7,67 @@
  * - Post-Interview: Offer calls and rejection feedback
  * - Separation: Layoff, performance, and misconduct meetings
  *
- * Schema: Dynamic Page Prompt (DPP) v2
- * @see dynamic_page_prompt.schema.json
+ * @version 1.0.16
+ * @see dynamic_page_prompt.schema.json - DPP v2 schema
+ * @see call_summary.schema.json - Analysis output schema v4.1
  */
 
 // =============================================================================
-// VERSION (update when scenarios change to bust browser cache)
+// CONFIGURATION
 // =============================================================================
-const APP_VERSION = '1.0.15';
+
+/**
+ * Application configuration constants.
+ * Update these values for different deployments.
+ */
+const CONFIG = Object.freeze({
+    // Version - bump when making changes to bust browser cache
+    VERSION: '1.0.16',
+
+    // Kaltura Avatar SDK credentials
+    CLIENT_ID: '115767973963657880005',
+    FLOW_ID: 'agent-15',
+
+    // Call analysis API endpoint (AWS Lambda + API Gateway)
+    ANALYSIS_API_URL: 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com',
+
+    // Timing
+    PROMPT_INJECTION_DELAY_MS: 2000,
+
+    // Avatar display name
+    AVATAR_NAME: 'Nora (HR)',
+
+    // PDF.js worker URL
+    PDFJS_WORKER_URL: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+});
 
 // =============================================================================
-// CALL ANALYSIS API CONFIGURATION
+// PDF.js INITIALIZATION
 // =============================================================================
-const ANALYSIS_API_URL = 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com';
-let lastCallSummary = null;  // Store last call summary for display/download
-let lastScenarioName = null; // Store scenario name for download filename (survives reset)
 
-// =============================================================================
-// PDF.js CONFIGURATION
-// =============================================================================
-// Set the worker source for PDF.js
 if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = CONFIG.PDFJS_WORKER_URL;
 }
 
 // =============================================================================
-// SCENARIO CONFIGURATION
+// SCENARIO DEFINITIONS
 // =============================================================================
-// Add new scenarios here. Each scenario needs:
-// - id: Unique identifier (used for DOM data attributes)
-// - name: Display name shown in the UI
-// - description: Short description for the scenario card
-// - file: Path to the DPP JSON file
-// - company: Company name for the meta display
-// - Additional fields vary by type (location/duration for interview, type for others)
 
-const SCENARIOS = {
+/**
+ * Scenario configuration registry.
+ * Each scenario defines metadata for display and the path to its DPP JSON file.
+ *
+ * To add a new scenario:
+ * 1. Create the DPP JSON file in dynamic_page_prompt_samples/
+ * 2. Add an entry here with: id, name, description, file, company, and type-specific fields
+ * 3. The UI will automatically render the new scenario card
+ *
+ * @type {Object.<string, Array<Object>>}
+ */
+const SCENARIOS = Object.freeze({
     /**
      * Interview scenarios - Initial candidate phone screens
-     * Mode in DPP: "interview"
+     * DPP mode: "interview"
      */
     interview: [
         {
@@ -102,8 +124,7 @@ const SCENARIOS = {
 
     /**
      * Post-Interview scenarios - Follow-up outcome calls
-     * Mode in DPP: "post_interview"
-     * Types: Offer (job offer), Rejection (not selected)
+     * DPP mode: "post_interview"
      */
     postInterview: [
         {
@@ -128,8 +149,7 @@ const SCENARIOS = {
 
     /**
      * Separation scenarios - Employee termination meetings
-     * Mode in DPP: "separation"
-     * Types: Layoff, Performance, Misconduct
+     * DPP mode: "separation"
      */
     separation: [
         {
@@ -169,60 +189,164 @@ const SCENARIOS = {
             type: 'Misconduct'
         }
     ]
-};
+});
 
 // =============================================================================
 // APPLICATION STATE
 // =============================================================================
 
-let sdk = null;              // KalturaAvatarSDK instance
-let currentScenario = null;  // Currently selected scenario metadata
-let scenarioData = null;     // Loaded DPP JSON data
-let cvText = null;           // Extracted CV text (null if no CV uploaded)
-let isConversationActive = false;  // Track if conversation has started
+/**
+ * Application state container.
+ * Centralizes all mutable state for easier debugging and maintenance.
+ */
+const state = {
+    /** @type {KalturaAvatarSDK|null} SDK instance */
+    sdk: null,
 
-// Editable field overrides (for all scenario types)
-// These values override the defaults from the scenario JSON when building the prompt
-let editedFields = {
-    candidate: null,   // subj.name (all modes)
-    role: null,        // role.t (all modes)
-    company: null,     // org.n (all modes)
-    location: null,    // role.loc (interview only)
-    focus: null,       // mtg.focus (interview only, comma-separated string -> array)
-    effective: null    // case.eff (separation only)
+    /** @type {Object|null} Currently selected scenario metadata from SCENARIOS */
+    currentScenario: null,
+
+    /** @type {Object|null} Loaded DPP JSON data */
+    scenarioData: null,
+
+    /** @type {string|null} Extracted CV text content */
+    cvText: null,
+
+    /** @type {boolean} Whether a conversation is currently active */
+    isConversationActive: false,
+
+    /** @type {string|null} Scenario name preserved for download after reset */
+    lastScenarioName: null,
+
+    /** @type {Object|null} Last call summary from analysis API */
+    lastCallSummary: null,
+
+    /**
+     * User-edited field overrides.
+     * These override the defaults from scenario JSON when building the prompt.
+     * null means "use default from scenario"
+     */
+    editedFields: {
+        candidate: null,   // subj.name (all modes)
+        role: null,        // role.t (all modes)
+        company: null,     // org.n (all modes)
+        location: null,    // role.loc (interview only)
+        focus: null,       // mtg.focus (interview only)
+        effective: null    // case.eff (separation only)
+    }
 };
 
+/**
+ * Reset edited fields to defaults.
+ */
+function resetEditedFields() {
+    state.editedFields = {
+        candidate: null,
+        role: null,
+        company: null,
+        location: null,
+        focus: null,
+        effective: null
+    };
+}
+
 // =============================================================================
-// DOM ELEMENTS
+// DOM ELEMENT CACHE
 // =============================================================================
 
-const ui = {
-    // Main containers
-    avatarContainer: document.getElementById('avatar-container'),
-    emptyState: document.getElementById('empty-state'),
-    scenarioDetails: document.getElementById('scenario-details'),
+/**
+ * Cached DOM element references.
+ * Populated on DOMContentLoaded for performance.
+ * @type {Object.<string, HTMLElement>}
+ */
+let ui = {};
 
-    // CV Upload
-    cvUploadPanel: document.getElementById('cv-upload-panel'),
-    cvUploadArea: document.getElementById('cv-upload-area'),
-    cvFileInput: document.getElementById('cv-file-input'),
-    cvStatus: document.getElementById('cv-status'),
-    cvFilename: document.getElementById('cv-filename'),
-    cvRemoveBtn: document.getElementById('cv-remove-btn'),
-    startInterviewBtn: document.getElementById('start-interview-btn'),
+/**
+ * Initialize DOM element cache.
+ * Call once after DOM is ready.
+ */
+function initUI() {
+    ui = {
+        // Main containers
+        avatarContainer: document.getElementById('avatar-container'),
+        emptyState: document.getElementById('empty-state'),
+        scenarioDetails: document.getElementById('scenario-details'),
 
-    // Transcript
-    transcriptContent: document.getElementById('transcript-content'),
-    transcriptEmpty: document.getElementById('transcript-empty'),
+        // CV Upload
+        cvUploadPanel: document.getElementById('cv-upload-panel'),
+        cvUploadArea: document.getElementById('cv-upload-area'),
+        cvFileInput: document.getElementById('cv-file-input'),
+        cvStatus: document.getElementById('cv-status'),
+        cvFilename: document.getElementById('cv-filename'),
+        cvRemoveBtn: document.getElementById('cv-remove-btn'),
+        startInterviewBtn: document.getElementById('start-interview-btn'),
 
-    // Status display
-    statusValue: document.getElementById('status-value'),
-    scenarioValue: document.getElementById('scenario-value'),
+        // Transcript
+        transcriptContent: document.getElementById('transcript-content'),
+        transcriptEmpty: document.getElementById('transcript-empty'),
 
-    // Download buttons
-    downloadBtn: document.getElementById('download-btn'),
-    downloadMdBtn: document.getElementById('download-md-btn')
-};
+        // Status display
+        statusValue: document.getElementById('status-value'),
+        scenarioValue: document.getElementById('scenario-value'),
+
+        // Download buttons
+        downloadBtn: document.getElementById('download-btn'),
+        downloadMdBtn: document.getElementById('download-md-btn')
+    };
+}
+
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+/**
+ * Escape HTML entities to prevent XSS.
+ * @param {*} text - Input to escape (converted to string)
+ * @returns {string} HTML-safe string
+ */
+function escapeHtml(text) {
+    if (text == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+/**
+ * Safely get nested property from object.
+ * @param {Object} obj - Source object
+ * @param {string} path - Dot-separated property path
+ * @param {*} defaultValue - Value to return if path not found
+ * @returns {*} Property value or default
+ */
+function getNestedValue(obj, path, defaultValue = '') {
+    return path.split('.').reduce((acc, key) => acc?.[key], obj) ?? defaultValue;
+}
+
+/**
+ * Deep clone an object (JSON-safe only).
+ * @param {Object} obj - Object to clone
+ * @returns {Object} Cloned object
+ */
+function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Generate a filename-safe slug from text.
+ * @param {string} text - Input text
+ * @returns {string} Lowercase, hyphenated slug
+ */
+function slugify(text) {
+    return (text || 'untitled').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+/**
+ * Get today's date as YYYY-MM-DD.
+ * @returns {string} ISO date string
+ */
+function getTodayISO() {
+    return new Date().toISOString().slice(0, 10);
+}
 
 // =============================================================================
 // SDK INITIALIZATION
@@ -230,47 +354,45 @@ const ui = {
 
 /**
  * Initialize the Kaltura Avatar SDK with event handlers.
- * Configures the SDK for the HR avatar flow and sets up transcript recording.
  */
 function initSDK() {
-    sdk = new KalturaAvatarSDK({
-        clientId: '115767973963657880005',  // HR Demo client
-        flowId: 'agent-15',                  // Nora HR agent
+    state.sdk = new KalturaAvatarSDK({
+        clientId: CONFIG.CLIENT_ID,
+        flowId: CONFIG.FLOW_ID,
         container: '#avatar-container'
     });
 
-    // Track state changes for UI updates
-    sdk.on('stateChange', ({ from, to }) => {
+    // State change tracking
+    state.sdk.on('stateChange', ({ from, to }) => {
         updateStatus(to);
-        updateButtons(to);
+        updateDownloadButtons();
     });
 
-    // Avatar speech -> add to transcript
-    sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
-        const text = data.agentContent || data;
-        if (text && typeof text === 'string') {
-            addTranscriptEntry('avatar', 'Nora (HR)', text);
+    // Avatar speech -> transcript
+    state.sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
+        const text = data?.agentContent || (typeof data === 'string' ? data : null);
+        if (text) {
+            addTranscriptEntry('avatar', CONFIG.AVATAR_NAME, text);
         }
     });
 
-    // User speech -> add to transcript
-    sdk.on(KalturaAvatarSDK.Events.USER_TRANSCRIPTION, (data) => {
-        const text = data.userTranscription || data;
-        if (text && typeof text === 'string') {
+    // User speech -> transcript
+    state.sdk.on(KalturaAvatarSDK.Events.USER_TRANSCRIPTION, (data) => {
+        const text = data?.userTranscription || (typeof data === 'string' ? data : null);
+        if (text) {
             addTranscriptEntry('user', 'You', text);
         }
     });
 
-    // Conversation ended -> analyze call, prompt for download, then reset UI
-    sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, async () => {
-        // Analyze the call before resetting
+    // Conversation ended -> analyze, show download prompt, reset
+    state.sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, async () => {
         await analyzeCall();
-        showDownloadPrompt();
+        highlightDownloadButton();
         resetToInitialState();
     });
 
     // Error handling
-    sdk.on('error', ({ message }) => {
+    state.sdk.on('error', ({ message }) => {
         console.error('SDK Error:', message);
         updateStatus('error');
     });
@@ -282,118 +404,103 @@ function initSDK() {
 
 /**
  * Render all scenario cards in the sidebar.
- * Populates the three category lists with clickable scenario cards.
  */
 function renderScenarios() {
-    // Interview scenarios
-    const interviewList = document.getElementById('interview-list');
-    interviewList.innerHTML = SCENARIOS.interview
-        .map(s => createScenarioCard(s, 'interview'))
-        .join('');
+    const lists = {
+        interview: document.getElementById('interview-list'),
+        postInterview: document.getElementById('post-interview-list'),
+        separation: document.getElementById('separation-list')
+    };
 
-    // Post-Interview scenarios
-    const postInterviewList = document.getElementById('post-interview-list');
-    postInterviewList.innerHTML = SCENARIOS.postInterview
-        .map(s => createScenarioCard(s, 'postInterview'))
-        .join('');
+    // Render each category
+    Object.entries(SCENARIOS).forEach(([type, scenarios]) => {
+        const listEl = lists[type];
+        if (listEl) {
+            listEl.innerHTML = scenarios.map(s => createScenarioCardHTML(s, type)).join('');
+        }
+    });
 
-    // Separation scenarios
-    const separationList = document.getElementById('separation-list');
-    separationList.innerHTML = SCENARIOS.separation
-        .map(s => createScenarioCard(s, 'separation'))
-        .join('');
-
-    // Attach click handlers to all cards
-    document.querySelectorAll('.scenario-card').forEach(card => {
-        card.addEventListener('click', () => {
-            selectScenario(card.dataset.id, card.dataset.type);
+    // Attach click handlers using event delegation
+    document.querySelectorAll('.scenario-list').forEach(list => {
+        list.addEventListener('click', (e) => {
+            const card = e.target.closest('.scenario-card');
+            if (card) {
+                selectScenario(card.dataset.id, card.dataset.type);
+            }
         });
     });
 }
 
 /**
  * Create HTML for a scenario card.
- * @param {Object} scenario - Scenario configuration object
- * @param {string} type - Category type: 'interview', 'postInterview', or 'separation'
- * @returns {string} HTML string for the card
+ * @param {Object} scenario - Scenario configuration
+ * @param {string} type - Category: 'interview', 'postInterview', 'separation'
+ * @returns {string} HTML string
  */
-function createScenarioCard(scenario, type) {
-    // Build metadata line based on type
-    let meta = '';
-    if (type === 'interview') {
-        meta = `<span>${scenario.company}</span><span>${scenario.duration}</span>`;
-    } else {
-        meta = `<span>${scenario.company}</span><span>${scenario.type}</span>`;
-    }
+function createScenarioCardHTML(scenario, type) {
+    const meta = type === 'interview'
+        ? `<span>${escapeHtml(scenario.company)}</span><span>${escapeHtml(scenario.duration)}</span>`
+        : `<span>${escapeHtml(scenario.company)}</span><span>${escapeHtml(scenario.type)}</span>`;
 
     // CSS class needs hyphen for post-interview
-    const typeClass = type === 'postInterview' ? 'post-interview' : type;
+    const cssClass = type === 'postInterview' ? 'post-interview' : type;
 
     return `
-        <div class="scenario-card ${typeClass}" data-id="${scenario.id}" data-type="${type}">
-            <h3>${scenario.name}</h3>
-            <p>${scenario.description}</p>
+        <div class="scenario-card ${cssClass}" data-id="${escapeHtml(scenario.id)}" data-type="${type}">
+            <h3>${escapeHtml(scenario.name)}</h3>
+            <p>${escapeHtml(scenario.description)}</p>
             <div class="meta">${meta}</div>
         </div>
     `;
 }
 
 // =============================================================================
-// SCENARIO SELECTION
+// SCENARIO SELECTION & DETAILS
 // =============================================================================
 
 /**
  * Handle scenario selection.
- * Loads the DPP JSON, shows scenario details, and auto-starts the conversation.
- * If a conversation is active, prompts user to confirm switching.
- * Resets editable fields for fresh customization.
  * @param {string} id - Scenario ID
  * @param {string} type - Category type
  */
 async function selectScenario(id, type) {
-    // Check if conversation is active and confirm switch
-    if (sdk && sdk.getState() === 'in-conversation') {
-        const confirmed = confirm('End the current conversation and start a new scenario?');
-        if (!confirmed) {
-            return; // User cancelled, don't switch
+    // Confirm if switching from active conversation
+    if (state.sdk?.getState() === 'in-conversation') {
+        if (!confirm('End the current conversation and start a new scenario?')) {
+            return;
         }
-        sdk.end();
+        state.sdk.end();
     }
 
-    // Reset state for new scenario
-    isConversationActive = false;
+    // Reset state
+    state.isConversationActive = false;
     resetEditedFields();
-
-    // Clear any previously uploaded CV (each scenario is a different candidate)
     clearCV();
 
-    // Update active state in UI
+    // Update UI selection
     document.querySelectorAll('.scenario-card').forEach(card => {
-        card.classList.remove('active');
+        card.classList.toggle('active', card.dataset.id === id);
     });
-    document.querySelector(`[data-id="${id}"]`).classList.add('active');
 
-    // Find scenario in the appropriate category
-    const scenarioList = type === 'interview' ? SCENARIOS.interview
-        : type === 'postInterview' ? SCENARIOS.postInterview
-        : SCENARIOS.separation;
+    // Find and load scenario
+    const scenarioList = SCENARIOS[type];
+    state.currentScenario = scenarioList?.find(s => s.id === id);
 
-    currentScenario = scenarioList.find(s => s.id === id);
+    if (!state.currentScenario) {
+        console.error(`Scenario not found: ${id}`);
+        return;
+    }
 
-    // Load the DPP JSON file (with cache busting)
     try {
-        const url = `${currentScenario.file}?v=${APP_VERSION}`;
+        const url = `${state.currentScenario.file}?v=${CONFIG.VERSION}`;
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        scenarioData = await response.json();
+        state.scenarioData = await response.json();
 
         showScenarioDetails();
-        ui.scenarioValue.textContent = currentScenario.name;
-
-        // All scenarios now show a start button to allow editing fields first
-        // CV upload is only shown for interview scenarios
+        ui.scenarioValue.textContent = state.currentScenario.name;
     } catch (error) {
         console.error('Failed to load scenario:', error);
         ui.scenarioValue.textContent = 'Error loading scenario';
@@ -401,113 +508,16 @@ async function selectScenario(id, type) {
 }
 
 /**
- * Display scenario details panel based on loaded DPP data.
- * Shows different fields based on the mode (interview, post_interview, separation).
- * For interview mode, renders editable input fields that can be customized before starting.
+ * Display scenario details panel with editable fields.
  */
 function showScenarioDetails() {
-    if (!scenarioData) return;
+    if (!state.scenarioData) return;
 
-    // Determine mode from DPP
-    const mode = scenarioData.mode;
-    const isInterview = mode === 'interview';
-    const isPostInterview = mode === 'post_interview';
-    const isSeparation = mode === 'separation';
+    const mode = state.scenarioData.mode;
+    const { subj, role, org, mtg } = state.scenarioData;
 
-    // Extract common fields from DPP v2 schema
-    const subj = scenarioData.subj;  // Subject (candidate/employee)
-    const role = scenarioData.role;  // Role details
-    const org = scenarioData.org;    // Organization
-    const mtg = scenarioData.mtg;    // Meeting config
-
-    let html = `<h4>Scenario: ${currentScenario.name}</h4>`;
-
-    if (isInterview) {
-        // Interview: show editable inputs for candidate info, role, location, focus
-        // Duration is display-only
-        const focusValue = mtg?.focus?.join(', ') || '';
-        html += `
-            <div class="detail-row editable">
-                <label class="label" for="edit-candidate">Candidate:</label>
-                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Candidate name">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-role">Role:</label>
-                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-company">Company:</label>
-                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-location">Location:</label>
-                <input type="text" id="edit-location" class="edit-input" value="${escapeHtml(role?.loc || '')}" placeholder="Location">
-            </div>
-            <div class="detail-row">
-                <span class="label">Duration:</span>
-                <span class="value">${mtg?.mins || 5} minutes</span>
-            </div>
-            <div class="detail-row editable focus-row">
-                <label class="label" for="edit-focus">Focus:</label>
-                <input type="text" id="edit-focus" class="edit-input" value="${escapeHtml(focusValue)}" placeholder="Focus areas (comma-separated)">
-            </div>
-        `;
-    } else if (isPostInterview) {
-        // Post-Interview: editable candidate, role, company; read-only call type and duration
-        const caseType = scenarioData.case?.type === 'Other'
-            ? (scenarioData.case?.talk?.[0]?.toLowerCase().includes('offer') ? 'Offer Call' : 'Feedback Call')
-            : scenarioData.case?.type;
-        html += `
-            <div class="detail-row editable">
-                <label class="label" for="edit-candidate">Candidate:</label>
-                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Candidate name">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-role">Role:</label>
-                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-company">Company:</label>
-                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
-            </div>
-            <div class="detail-row">
-                <span class="label">Call Type:</span>
-                <span class="value">${caseType}</span>
-            </div>
-            <div class="detail-row">
-                <span class="label">Duration:</span>
-                <span class="value">${mtg?.mins || 5} minutes</span>
-            </div>
-        `;
-    } else if (isSeparation) {
-        // Separation: editable employee, role, company, effective date; read-only type and immediate
-        html += `
-            <div class="detail-row editable">
-                <label class="label" for="edit-candidate">Employee:</label>
-                <input type="text" id="edit-candidate" class="edit-input" value="${escapeHtml(subj?.name || '')}" placeholder="Employee name">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-role">Role:</label>
-                <input type="text" id="edit-role" class="edit-input" value="${escapeHtml(role?.t || '')}" placeholder="Job title">
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-company">Company:</label>
-                <input type="text" id="edit-company" class="edit-input" value="${escapeHtml(org?.n || '')}" placeholder="Company name">
-            </div>
-            <div class="detail-row">
-                <span class="label">Type:</span>
-                <span class="value">${scenarioData.case?.type || 'N/A'}</span>
-            </div>
-            <div class="detail-row editable">
-                <label class="label" for="edit-effective">Effective:</label>
-                <input type="text" id="edit-effective" class="edit-input" value="${escapeHtml(scenarioData.case?.eff || '')}" placeholder="Effective date">
-            </div>
-            <div class="detail-row">
-                <span class="label">Immediate:</span>
-                <span class="value">${scenarioData.case?.imm ? 'Yes' : 'No'}</span>
-            </div>
-        `;
-    }
+    let html = `<h4>Scenario: ${escapeHtml(state.currentScenario?.name)}</h4>`;
+    html += buildScenarioFieldsHTML(mode, { subj, role, org, mtg, case: state.scenarioData.case });
 
     ui.scenarioDetails.innerHTML = html;
     ui.scenarioDetails.style.display = 'block';
@@ -520,384 +530,166 @@ function showScenarioDetails() {
     };
     ui.scenarioDetails.style.borderLeftColor = accentColors[mode] || 'var(--accent-warm)';
 
-    // Attach input change listeners for all modes with editable fields
+    // Setup editable field listeners
     attachEditableFieldListeners();
 
-    // Show CV upload panel only for interviews, start button panel for others
-    updateCVPanelVisibility(mode);
+    // Show appropriate start button/CV panel
+    updateStartPanel(mode);
+}
+
+/**
+ * Build HTML for scenario detail fields based on mode.
+ * @param {string} mode - DPP mode
+ * @param {Object} data - Scenario data fields
+ * @returns {string} HTML string
+ */
+function buildScenarioFieldsHTML(mode, data) {
+    const { subj, role, org, mtg } = data;
+
+    // Common editable fields for all modes
+    const personLabel = mode === 'separation' ? 'Employee' : 'Candidate';
+    let html = `
+        <div class="detail-row editable">
+            <label class="label" for="edit-candidate">${personLabel}:</label>
+            <input type="text" id="edit-candidate" class="edit-input"
+                   value="${escapeHtml(subj?.name)}" placeholder="${personLabel} name">
+        </div>
+        <div class="detail-row editable">
+            <label class="label" for="edit-role">Role:</label>
+            <input type="text" id="edit-role" class="edit-input"
+                   value="${escapeHtml(role?.t)}" placeholder="Job title">
+        </div>
+        <div class="detail-row editable">
+            <label class="label" for="edit-company">Company:</label>
+            <input type="text" id="edit-company" class="edit-input"
+                   value="${escapeHtml(org?.n)}" placeholder="Company name">
+        </div>
+    `;
+
+    // Mode-specific fields
+    if (mode === 'interview') {
+        html += `
+            <div class="detail-row editable">
+                <label class="label" for="edit-location">Location:</label>
+                <input type="text" id="edit-location" class="edit-input"
+                       value="${escapeHtml(role?.loc)}" placeholder="Location">
+            </div>
+            <div class="detail-row">
+                <span class="label">Duration:</span>
+                <span class="value">${mtg?.mins || 5} minutes</span>
+            </div>
+            <div class="detail-row editable focus-row">
+                <label class="label" for="edit-focus">Focus:</label>
+                <input type="text" id="edit-focus" class="edit-input"
+                       value="${escapeHtml(mtg?.focus?.join(', '))}"
+                       placeholder="Focus areas (comma-separated)">
+            </div>
+        `;
+    } else if (mode === 'post_interview') {
+        const caseType = inferPostInterviewType(data.case);
+        html += `
+            <div class="detail-row">
+                <span class="label">Call Type:</span>
+                <span class="value">${escapeHtml(caseType)}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Duration:</span>
+                <span class="value">${mtg?.mins || 5} minutes</span>
+            </div>
+        `;
+    } else if (mode === 'separation') {
+        html += `
+            <div class="detail-row">
+                <span class="label">Type:</span>
+                <span class="value">${escapeHtml(data.case?.type || 'N/A')}</span>
+            </div>
+            <div class="detail-row editable">
+                <label class="label" for="edit-effective">Effective:</label>
+                <input type="text" id="edit-effective" class="edit-input"
+                       value="${escapeHtml(data.case?.eff)}" placeholder="Effective date">
+            </div>
+            <div class="detail-row">
+                <span class="label">Immediate:</span>
+                <span class="value">${data.case?.imm ? 'Yes' : 'No'}</span>
+            </div>
+        `;
+    }
+
+    return html;
+}
+
+/**
+ * Infer the post-interview call type from case data.
+ * @param {Object} caseData - DPP case object
+ * @returns {string} Human-readable call type
+ */
+function inferPostInterviewType(caseData) {
+    if (caseData?.type && caseData.type !== 'Other') {
+        return caseData.type;
+    }
+    const firstTalk = caseData?.talk?.[0]?.toLowerCase() || '';
+    return firstTalk.includes('offer') ? 'Offer Call' : 'Feedback Call';
 }
 
 /**
  * Attach event listeners to editable input fields.
- * Updates editedFields state when user modifies values.
- * Works for all scenario modes (interview, post_interview, separation).
+ * Removes existing listeners first to prevent duplicates.
  */
 function attachEditableFieldListeners() {
-    const inputs = {
-        candidate: document.getElementById('edit-candidate'),
-        role: document.getElementById('edit-role'),
-        company: document.getElementById('edit-company'),
-        location: document.getElementById('edit-location'),
-        focus: document.getElementById('edit-focus'),
-        effective: document.getElementById('edit-effective')
-    };
+    const fieldIds = ['candidate', 'role', 'company', 'location', 'focus', 'effective'];
 
-    // Track changes to each field
-    Object.keys(inputs).forEach(key => {
-        const input = inputs[key];
-        if (input) {
-            input.addEventListener('input', () => {
-                editedFields[key] = input.value.trim() || null;
-            });
-        }
+    fieldIds.forEach(fieldId => {
+        const input = document.getElementById(`edit-${fieldId}`);
+        if (!input) return;
+
+        // Create handler with closure over fieldId
+        const handler = () => {
+            state.editedFields[fieldId] = input.value.trim() || null;
+        };
+
+        // Store handler reference for potential cleanup
+        input._editHandler = handler;
+        input.addEventListener('input', handler);
     });
 }
 
 /**
- * Reset edited fields to null (use scenario defaults).
- */
-function resetEditedFields() {
-    editedFields = {
-        candidate: null,
-        role: null,
-        company: null,
-        location: null,
-        focus: null,
-        effective: null
-    };
-}
-
-/**
- * Disable or enable editable input fields.
- * @param {boolean} disabled - Whether to disable the fields
+ * Set disabled state on all editable input fields.
+ * @param {boolean} disabled
  */
 function setEditableFieldsDisabled(disabled) {
-    const inputs = document.querySelectorAll('.scenario-details .edit-input');
-    inputs.forEach(input => {
+    document.querySelectorAll('.scenario-details .edit-input').forEach(input => {
         input.disabled = disabled;
-        if (disabled) {
-            input.classList.add('disabled');
-        } else {
-            input.classList.remove('disabled');
-        }
+        input.classList.toggle('disabled', disabled);
     });
 }
 
 // =============================================================================
-// CONVERSATION CONTROL
+// START PANELS (Interview CV Upload / Other Start Button)
 // =============================================================================
 
 /**
- * Start the avatar conversation.
- * Initializes the SDK, clears previous transcript, and injects the DPP.
- * Disables editable fields once conversation starts.
+ * Update which start panel is visible based on mode.
+ * @param {string} mode - DPP mode
  */
-async function startConversation() {
-    if (!currentScenario || !scenarioData) return;
-
-    // Mark conversation as active and disable editable fields and CV upload
-    isConversationActive = true;
-    setEditableFieldsDisabled(true);
-    setCVUploadDisabled(true);
-
-    // Reset transcript UI
-    clearTranscriptUI();
-
-    // Show avatar container
-    ui.emptyState.style.display = 'none';
-    ui.avatarContainer.classList.remove('empty');
-
-    try {
-        await sdk.start();
-
-        // Inject the Dynamic Page Prompt after avatar loads
-        // Small delay ensures the avatar is ready to receive the prompt
-        // Uses buildDynamicPrompt() to include CV data and edited field overrides
-        setTimeout(() => {
-            const promptJson = buildDynamicPrompt();
-            sdk.injectPrompt(promptJson);
-        }, 2000);
-    } catch (error) {
-        console.error('Failed to start conversation:', error);
-        updateStatus('error');
-        // Re-enable fields if start failed
-        isConversationActive = false;
-        setEditableFieldsDisabled(false);
-        setCVUploadDisabled(false);
-    }
-}
-
-// =============================================================================
-// UI STATE MANAGEMENT
-// =============================================================================
-
-/**
- * Update the status display.
- * @param {string} state - Current SDK state
- */
-function updateStatus(state) {
-    ui.statusValue.textContent = state;
-    ui.statusValue.className = 'value';
-
-    if (state === 'in-conversation') {
-        ui.statusValue.classList.add('status-active');
-    } else if (state === 'ended' || state === 'error') {
-        ui.statusValue.classList.add('status-ended');
-    }
-}
-
-/**
- * Update button enabled/disabled states.
- * @param {string} state - Current SDK state
- */
-function updateButtons(state) {
-    // Enable download buttons if transcript exists
-    const hasTranscript = sdk && sdk.getTranscript().length > 0;
-    ui.downloadBtn.disabled = !hasTranscript;
-    ui.downloadMdBtn.disabled = !hasTranscript;
-}
-
-/**
- * Reset UI to initial clean state (ready for new scenario selection).
- * Called after conversation ends to allow user to start fresh.
- */
-function resetToInitialState() {
-    // End SDK session and remove iframe
-    if (sdk) {
-        sdk.end();
-    }
-
-    // Reset application state
-    currentScenario = null;
-    scenarioData = null;
-    isConversationActive = false;
-    resetEditedFields();
-    clearCV();
-
-    // Remove active state from all scenario cards
-    document.querySelectorAll('.scenario-card').forEach(card => {
-        card.classList.remove('active');
-    });
-
-    // Hide scenario details panel
-    ui.scenarioDetails.style.display = 'none';
-    ui.scenarioDetails.innerHTML = '';
-
-    // Hide CV upload panel and start call panel
-    ui.cvUploadPanel.style.display = 'none';
-    hideStartCallPanel();
-
-    // Show empty state in avatar container
-    // Re-append in case it was detached, then make visible
-    ui.avatarContainer.classList.add('empty');
-    ui.avatarContainer.appendChild(ui.emptyState);
-    ui.emptyState.style.display = '';
-
-    // Reset status display
-    ui.statusValue.textContent = 'Ready';
-    ui.statusValue.className = 'value';
-    ui.scenarioValue.textContent = 'None selected';
-
-    // Note: transcript and download buttons are intentionally kept
-    // so user can still download the conversation from the ended session
-}
-
-// =============================================================================
-// TRANSCRIPT MANAGEMENT
-// =============================================================================
-
-/**
- * Add an entry to the transcript display.
- * @param {string} type - 'avatar' or 'user'
- * @param {string} role - Display name for the speaker
- * @param {string} text - The spoken text
- */
-function addTranscriptEntry(type, role, text) {
-    ui.transcriptEmpty.style.display = 'none';
-
-    const entry = document.createElement('div');
-    entry.className = `transcript-entry ${type}`;
-    entry.innerHTML = `
-        <div class="role">${escapeHtml(role)}</div>
-        <div class="text">${escapeHtml(text)}</div>
-        <div class="time">${new Date().toLocaleTimeString()}</div>
-    `;
-
-    ui.transcriptContent.appendChild(entry);
-    ui.transcriptContent.scrollTop = ui.transcriptContent.scrollHeight;
-
-    // Enable download buttons
-    ui.downloadBtn.disabled = false;
-    ui.downloadMdBtn.disabled = false;
-}
-
-/**
- * Clear the transcript display.
- */
-function clearTranscriptUI() {
-    ui.transcriptContent.innerHTML = '';
-    ui.transcriptEmpty.style.display = 'block';
-    ui.transcriptContent.appendChild(ui.transcriptEmpty);
-}
-
-/**
- * Highlight download button after conversation ends.
- */
-function showDownloadPrompt() {
-    if (!sdk || sdk.getTranscript().length === 0) return;
-
-    ui.downloadBtn.classList.add('pulse');
-    setTimeout(() => ui.downloadBtn.classList.remove('pulse'), 2000);
-}
-
-/**
- * Download the transcript in the specified format.
- * @param {string} format - 'text' or 'markdown'
- */
-function downloadTranscript(format) {
-    if (!sdk) return;
-
-    const scenarioName = currentScenario?.name?.replace(/\s+/g, '-').toLowerCase() || 'session';
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = `hr-transcript-${scenarioName}-${date}`;
-
-    sdk.downloadTranscript({
-        format: format,
-        filename: `${filename}.${format === 'markdown' ? 'md' : 'txt'}`,
-        includeTimestamps: true
-    });
-}
-
-// =============================================================================
-// UTILITIES
-// =============================================================================
-
-/**
- * Escape HTML entities to prevent XSS.
- * @param {string} text - Raw text
- * @returns {string} Escaped HTML
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// =============================================================================
-// CV UPLOAD HANDLING
-// =============================================================================
-
-/**
- * Disable or enable CV upload controls.
- * @param {boolean} disabled - Whether to disable the CV upload
- */
-function setCVUploadDisabled(disabled) {
-    // Disable the file input
-    ui.cvFileInput.disabled = disabled;
-
-    // Disable the start interview button
-    ui.startInterviewBtn.disabled = disabled;
-
-    // Disable remove button if CV is uploaded
-    ui.cvRemoveBtn.disabled = disabled;
-
-    // Add/remove disabled class on the upload panel for visual feedback
-    if (disabled) {
-        ui.cvUploadPanel.classList.add('disabled');
-    } else {
-        ui.cvUploadPanel.classList.remove('disabled');
-    }
-}
-
-/**
- * Extract text from a PDF file using PDF.js
- * @param {File} file - PDF file object
- * @returns {Promise<string>} Extracted text
- */
-async function extractTextFromPDF(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    let fullText = '';
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n';
-    }
-
-    return fullText.trim();
-}
-
-/**
- * Handle CV file selection
- * @param {File} file - Selected PDF file
- */
-async function handleCVFile(file) {
-    if (!file || file.type !== 'application/pdf') {
-        alert('Please upload a PDF file.');
-        return;
-    }
-
-    // Show processing state
-    ui.cvUploadPanel.classList.add('processing');
-
-    try {
-        cvText = await extractTextFromPDF(file);
-
-        // Update UI to show uploaded file
-        ui.cvFilename.textContent = file.name;
-        ui.cvStatus.style.display = 'flex';
-        ui.cvUploadPanel.classList.add('has-cv');
-        ui.cvUploadPanel.classList.remove('processing');
-
-        console.log('CV extracted:', cvText.substring(0, 200) + '...');
-    } catch (error) {
-        console.error('Failed to extract CV text:', error);
-        alert('Failed to read PDF. Please try another file.');
-        ui.cvUploadPanel.classList.remove('processing');
-        clearCV();
-    }
-}
-
-/**
- * Clear the uploaded CV
- */
-function clearCV() {
-    cvText = null;
-    ui.cvFileInput.value = '';
-    ui.cvStatus.style.display = 'none';
-    ui.cvUploadPanel.classList.remove('has-cv');
-}
-
-/**
- * Show or hide CV upload panel and start button based on scenario type.
- * Interview mode: Shows CV upload panel with start button.
- * Other modes: Shows just a start button panel (no CV upload).
- * @param {string} mode - Scenario mode
- */
-function updateCVPanelVisibility(mode) {
+function updateStartPanel(mode) {
     if (mode === 'interview') {
-        // Interview: show full CV upload panel with start button
         ui.cvUploadPanel.style.display = 'block';
         hideStartCallPanel();
     } else {
-        // Post-interview/Separation: hide CV upload, show simple start button
         ui.cvUploadPanel.style.display = 'none';
         showStartCallPanel(mode);
     }
 }
 
 /**
- * Show a simple start button panel for non-interview scenarios.
- * @param {string} mode - Scenario mode ('post_interview' or 'separation')
+ * Show the start call button panel for non-interview scenarios.
+ * @param {string} mode - DPP mode
  */
 function showStartCallPanel(mode) {
-    // Check if panel already exists
     let panel = document.getElementById('start-call-panel');
+
     if (!panel) {
-        // Create the panel
         panel = document.createElement('div');
         panel.id = 'start-call-panel';
         panel.className = 'start-call-panel';
@@ -906,10 +698,8 @@ function showStartCallPanel(mode) {
                 <span>&#9654;</span> Start Call
             </button>
         `;
-        // Insert after scenario details
         ui.scenarioDetails.after(panel);
 
-        // Attach event listener
         document.getElementById('start-call-btn').addEventListener('click', async () => {
             setStartCallPanelDisabled(true);
             setEditableFieldsDisabled(true);
@@ -917,7 +707,7 @@ function showStartCallPanel(mode) {
         });
     }
 
-    // Apply accent color based on mode
+    // Set accent color
     const accentColors = {
         post_interview: 'var(--accent-post-interview)',
         separation: 'var(--accent-separation)'
@@ -927,7 +717,7 @@ function showStartCallPanel(mode) {
 }
 
 /**
- * Hide the start call panel (used when switching scenarios).
+ * Hide the start call panel.
  */
 function hideStartCallPanel() {
     const panel = document.getElementById('start-call-panel');
@@ -937,7 +727,7 @@ function hideStartCallPanel() {
 }
 
 /**
- * Enable or disable the start call panel button.
+ * Set disabled state on start call button.
  * @param {boolean} disabled
  */
 function setStartCallPanelDisabled(disabled) {
@@ -948,61 +738,141 @@ function setStartCallPanelDisabled(disabled) {
     }
 }
 
+// =============================================================================
+// CV UPLOAD
+// =============================================================================
+
 /**
- * Build the dynamic prompt including CV and edited field overrides.
- * Applies user customizations to the scenario data before sending to the avatar.
- * @returns {string} JSON string for prompt injection
+ * Handle CV file selection.
+ * @param {File} file - Selected PDF file
+ */
+async function handleCVFile(file) {
+    if (!file || file.type !== 'application/pdf') {
+        alert('Please upload a PDF file.');
+        return;
+    }
+
+    ui.cvUploadPanel.classList.add('processing');
+
+    try {
+        state.cvText = await extractTextFromPDF(file);
+
+        ui.cvFilename.textContent = file.name;
+        ui.cvStatus.style.display = 'flex';
+        ui.cvUploadPanel.classList.add('has-cv');
+        ui.cvUploadPanel.classList.remove('processing');
+
+        console.log('CV extracted:', state.cvText.substring(0, 200) + '...');
+    } catch (error) {
+        console.error('Failed to extract CV text:', error);
+        alert('Failed to read PDF. Please try another file.');
+        ui.cvUploadPanel.classList.remove('processing');
+        clearCV();
+    }
+}
+
+/**
+ * Extract text from a PDF file using PDF.js.
+ * @param {File} file - PDF file
+ * @returns {Promise<string>} Extracted text
+ */
+async function extractTextFromPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        pages.push(textContent.items.map(item => item.str).join(' '));
+    }
+
+    return pages.join('\n').trim();
+}
+
+/**
+ * Clear uploaded CV.
+ */
+function clearCV() {
+    state.cvText = null;
+    if (ui.cvFileInput) ui.cvFileInput.value = '';
+    if (ui.cvStatus) ui.cvStatus.style.display = 'none';
+    if (ui.cvUploadPanel) ui.cvUploadPanel.classList.remove('has-cv');
+}
+
+/**
+ * Set disabled state on CV upload controls.
+ * @param {boolean} disabled
+ */
+function setCVUploadDisabled(disabled) {
+    if (ui.cvFileInput) ui.cvFileInput.disabled = disabled;
+    if (ui.startInterviewBtn) ui.startInterviewBtn.disabled = disabled;
+    if (ui.cvRemoveBtn) ui.cvRemoveBtn.disabled = disabled;
+    if (ui.cvUploadPanel) {
+        ui.cvUploadPanel.classList.toggle('disabled', disabled);
+    }
+}
+
+// =============================================================================
+// CONVERSATION CONTROL
+// =============================================================================
+
+/**
+ * Start the avatar conversation.
+ */
+async function startConversation() {
+    if (!state.currentScenario || !state.scenarioData) return;
+
+    state.isConversationActive = true;
+    setEditableFieldsDisabled(true);
+    setCVUploadDisabled(true);
+
+    clearTranscriptUI();
+
+    ui.emptyState.style.display = 'none';
+    ui.avatarContainer.classList.remove('empty');
+
+    try {
+        await state.sdk.start();
+
+        // Inject DPP after avatar is ready
+        setTimeout(() => {
+            const promptJson = buildDynamicPrompt();
+            if (promptJson) {
+                state.sdk.injectPrompt(promptJson);
+            }
+        }, CONFIG.PROMPT_INJECTION_DELAY_MS);
+    } catch (error) {
+        console.error('Failed to start conversation:', error);
+        updateStatus('error');
+        state.isConversationActive = false;
+        setEditableFieldsDisabled(false);
+        setCVUploadDisabled(false);
+    }
+}
+
+/**
+ * Build the dynamic prompt JSON string.
+ * Applies user edits and CV data to the scenario data.
+ * @returns {string|null} JSON string for prompt injection
  */
 function buildDynamicPrompt() {
-    if (!scenarioData) return null;
+    if (!state.scenarioData) return null;
 
-    // Clone scenario data for modifications
-    const promptData = JSON.parse(JSON.stringify(scenarioData));
-
-    // Apply edited field overrides (if user customized them)
-    if (editedFields.candidate) {
-        promptData.subj.name = editedFields.candidate;
-    }
-    if (editedFields.role) {
-        promptData.role.t = editedFields.role;
-    }
-    if (editedFields.company) {
-        promptData.org.n = editedFields.company;
-    }
-    if (editedFields.location) {
-        promptData.role.loc = editedFields.location;
-    }
-    if (editedFields.focus) {
-        // Convert comma-separated string to array
-        promptData.mtg = promptData.mtg || {};
-        promptData.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
-    }
-    if (editedFields.effective) {
-        // For separation scenarios - effective date
-        promptData.case = promptData.case || {};
-        promptData.case.eff = editedFields.effective;
-    }
+    const promptData = applyUserEdits(deepClone(state.scenarioData));
 
     // Add CV information if available
-    if (cvText) {
-        // Ensure profile object exists
-        if (!promptData.subj.prof) {
-            promptData.subj.prof = {};
-        }
-        if (!promptData.subj.prof.notes) {
-            promptData.subj.prof.notes = [];
-        }
+    if (state.cvText) {
+        promptData.subj = promptData.subj || {};
+        promptData.subj.prof = promptData.subj.prof || {};
+        promptData.subj.prof.notes = promptData.subj.prof.notes || [];
 
-        // Add CV context instruction
-        promptData.subj.prof.cv_summary = cvText;
+        promptData.subj.prof.cv_summary = state.cvText;
         promptData.subj.prof.notes.push(
             'IMPORTANT: A CV/resume was provided. Review the cv_summary and ask relevant follow-up questions about their experience, skills, and background mentioned in the CV.'
         );
 
-        // Add instruction to use CV
-        if (!promptData.inst) {
-            promptData.inst = [];
-        }
+        promptData.inst = promptData.inst || [];
         promptData.inst.push(
             'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
         );
@@ -1011,110 +881,245 @@ function buildDynamicPrompt() {
     return JSON.stringify(promptData);
 }
 
+/**
+ * Apply user-edited field overrides to a DPP object.
+ * @param {Object} data - DPP object to modify
+ * @returns {Object} Modified DPP object
+ */
+function applyUserEdits(data) {
+    const { editedFields } = state;
+
+    if (editedFields.candidate && data.subj) {
+        data.subj.name = editedFields.candidate;
+    }
+    if (editedFields.role && data.role) {
+        data.role.t = editedFields.role;
+    }
+    if (editedFields.company && data.org) {
+        data.org.n = editedFields.company;
+    }
+    if (editedFields.location && data.role) {
+        data.role.loc = editedFields.location;
+    }
+    if (editedFields.focus) {
+        data.mtg = data.mtg || {};
+        data.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (editedFields.effective) {
+        data.case = data.case || {};
+        data.case.eff = editedFields.effective;
+    }
+
+    return data;
+}
+
+// =============================================================================
+// UI STATE MANAGEMENT
+// =============================================================================
+
+/**
+ * Update the status display.
+ * @param {string} statusText - Status text to display
+ */
+function updateStatus(statusText) {
+    ui.statusValue.textContent = statusText;
+    ui.statusValue.className = 'value';
+
+    if (statusText === 'in-conversation') {
+        ui.statusValue.classList.add('status-active');
+    } else if (statusText === 'ended' || statusText === 'error') {
+        ui.statusValue.classList.add('status-ended');
+    }
+}
+
+/**
+ * Update download button enabled state based on transcript availability.
+ */
+function updateDownloadButtons() {
+    const hasTranscript = state.sdk?.getTranscript().length > 0;
+    if (ui.downloadBtn) ui.downloadBtn.disabled = !hasTranscript;
+    if (ui.downloadMdBtn) ui.downloadMdBtn.disabled = !hasTranscript;
+}
+
+/**
+ * Highlight download button to draw attention.
+ */
+function highlightDownloadButton() {
+    if (!state.sdk?.getTranscript().length) return;
+
+    ui.downloadBtn.classList.add('pulse');
+    setTimeout(() => ui.downloadBtn.classList.remove('pulse'), 2000);
+}
+
+/**
+ * Reset UI to initial clean state.
+ */
+function resetToInitialState() {
+    // End SDK session
+    if (state.sdk) {
+        state.sdk.end();
+    }
+
+    // Reset state
+    state.currentScenario = null;
+    state.scenarioData = null;
+    state.isConversationActive = false;
+    resetEditedFields();
+    clearCV();
+
+    // Clear UI selections
+    document.querySelectorAll('.scenario-card').forEach(card => {
+        card.classList.remove('active');
+    });
+
+    // Hide panels
+    ui.scenarioDetails.style.display = 'none';
+    ui.scenarioDetails.innerHTML = '';
+    ui.cvUploadPanel.style.display = 'none';
+    hideStartCallPanel();
+
+    // Show empty state
+    ui.avatarContainer.classList.add('empty');
+    ui.avatarContainer.appendChild(ui.emptyState);
+    ui.emptyState.style.display = '';
+
+    // Reset status
+    ui.statusValue.textContent = 'Ready';
+    ui.statusValue.className = 'value';
+    ui.scenarioValue.textContent = 'None selected';
+}
+
+// =============================================================================
+// TRANSCRIPT MANAGEMENT
+// =============================================================================
+
+/**
+ * Add an entry to the transcript display.
+ * @param {string} type - 'avatar' or 'user'
+ * @param {string} speaker - Display name
+ * @param {string} text - Spoken text
+ */
+function addTranscriptEntry(type, speaker, text) {
+    ui.transcriptEmpty.style.display = 'none';
+
+    const entry = document.createElement('div');
+    entry.className = `transcript-entry ${type}`;
+    entry.innerHTML = `
+        <div class="role">${escapeHtml(speaker)}</div>
+        <div class="text">${escapeHtml(text)}</div>
+        <div class="time">${new Date().toLocaleTimeString()}</div>
+    `;
+
+    ui.transcriptContent.appendChild(entry);
+    ui.transcriptContent.scrollTop = ui.transcriptContent.scrollHeight;
+
+    // Enable download buttons
+    updateDownloadButtons();
+}
+
+/**
+ * Clear the transcript UI.
+ */
+function clearTranscriptUI() {
+    ui.transcriptContent.innerHTML = '';
+    ui.transcriptEmpty.style.display = 'block';
+    ui.transcriptContent.appendChild(ui.transcriptEmpty);
+}
+
+/**
+ * Download transcript in specified format.
+ * @param {string} format - 'text' or 'markdown'
+ */
+function downloadTranscript(format) {
+    if (!state.sdk) return;
+
+    const name = slugify(state.currentScenario?.name || 'session');
+    const ext = format === 'markdown' ? 'md' : 'txt';
+
+    state.sdk.downloadTranscript({
+        format,
+        filename: `hr-transcript-${name}-${getTodayISO()}.${ext}`,
+        includeTimestamps: true
+    });
+}
+
 // =============================================================================
 // CALL ANALYSIS
 // =============================================================================
 
 /**
  * Analyze the completed call using the Lambda API.
- * Sends transcript and DPP to get a structured summary.
  */
 async function analyzeCall() {
-    if (!sdk || !scenarioData) {
+    if (!state.sdk || !state.scenarioData) {
         console.log('No call to analyze');
         return;
     }
 
-    const transcript = sdk.getTranscript();
-    if (!transcript || transcript.length === 0) {
+    const transcript = state.sdk.getTranscript();
+    if (!transcript?.length) {
         console.log('Empty transcript, skipping analysis');
         return;
     }
 
-    // Store scenario name before reset happens (for download filename)
-    lastScenarioName = currentScenario?.name || 'call';
+    // Preserve scenario name for download
+    state.lastScenarioName = state.currentScenario?.name || 'call';
 
-    // Show analyzing state
     updateStatus('analyzing...');
 
     try {
-        // Build the DPP with any user edits applied
         const dpp = buildDPPForAnalysis();
 
-        // Format transcript for the API
+        // Format transcript for API (SDK uses 'role', need 'assistant'/'user')
         const formattedTranscript = transcript.map(entry => ({
-            role: entry.speaker === 'Nora (HR)' ? 'assistant' : 'user',
+            role: entry.role === 'Avatar' ? 'assistant' : 'user',
             content: entry.text
         }));
 
-        // Call the analysis API
-        const response = await fetch(ANALYSIS_API_URL, {
+        const response = await fetch(CONFIG.ANALYSIS_API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                transcript: formattedTranscript,
-                dpp: dpp
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: formattedTranscript, dpp })
         });
 
         const result = await response.json();
 
         if (result.success) {
-            lastCallSummary = result.summary;
-            console.log('Call analysis complete:', lastCallSummary);
+            state.lastCallSummary = result.summary;
+            console.log('Call analysis complete:', state.lastCallSummary);
             showCallSummary(result.summary);
         } else {
             console.error('Analysis failed:', result.error);
-            showAnalysisError(result.error);
         }
     } catch (error) {
         console.error('Failed to analyze call:', error);
-        showAnalysisError(error.message);
     }
 }
 
 /**
- * Build the DPP object for analysis, including any user edits.
- * @returns {Object} DPP object for the analysis API
+ * Build DPP object for analysis API.
+ * @returns {Object} DPP with user edits applied
  */
 function buildDPPForAnalysis() {
-    if (!scenarioData) return {};
+    if (!state.scenarioData) return {};
 
-    // Clone scenario data
-    const dpp = JSON.parse(JSON.stringify(scenarioData));
-
-    // Apply edited field overrides
-    if (editedFields.candidate) dpp.subj.name = editedFields.candidate;
-    if (editedFields.role) dpp.role.t = editedFields.role;
-    if (editedFields.company) dpp.org.n = editedFields.company;
-    if (editedFields.location) dpp.role.loc = editedFields.location;
-    if (editedFields.focus) {
-        dpp.mtg = dpp.mtg || {};
-        dpp.mtg.focus = editedFields.focus.split(',').map(s => s.trim()).filter(s => s);
-    }
-    if (editedFields.effective) {
-        dpp.case = dpp.case || {};
-        dpp.case.eff = editedFields.effective;
-    }
+    const dpp = applyUserEdits(deepClone(state.scenarioData));
 
     // Add CV flag if provided
-    if (cvText) {
+    if (state.cvText) {
         dpp.subj = dpp.subj || {};
         dpp.subj.prof = dpp.subj.prof || {};
-        dpp.subj.prof.cv_summary = cvText;
+        dpp.subj.prof.cv_summary = state.cvText;
     }
 
     return dpp;
 }
 
 /**
- * Display the call summary in a modal.
- * @param {Object} summary - The call summary object
+ * Display call summary modal.
+ * @param {Object} summary - Analysis result
  */
 function showCallSummary(summary) {
-    // Create modal if it doesn't exist
     let modal = document.getElementById('summary-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -1123,7 +1128,6 @@ function showCallSummary(summary) {
         document.body.appendChild(modal);
     }
 
-    // Build summary HTML
     const fitScore = summary.fit?.score_0_100;
     const fitClass = fitScore >= 70 ? 'good' : fitScore >= 50 ? 'ok' : 'poor';
 
@@ -1139,11 +1143,11 @@ function showCallSummary(summary) {
                     <p>${escapeHtml(summary.overview || 'No overview available')}</p>
                 </div>
 
-                ${summary.fit?.score_0_100 !== null ? `
+                ${fitScore != null ? `
                 <div class="summary-section">
                     <h4>Fit Assessment</h4>
                     <div class="fit-score ${fitClass}">
-                        <span class="score-value">${summary.fit.score_0_100}</span>
+                        <span class="score-value">${fitScore}</span>
                         <span class="score-label">/ 100</span>
                     </div>
                     ${summary.fit.dims?.length ? `
@@ -1163,7 +1167,7 @@ function showCallSummary(summary) {
                 <div class="summary-section">
                     <h4>Gaps & Follow-ups</h4>
                     <ul class="gaps-list">
-                        ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || JSON.stringify(g))}</li>`).join('')}
+                        ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || '')}</li>`).join('')}
                     </ul>
                 </div>
                 ` : ''}
@@ -1180,9 +1184,9 @@ function showCallSummary(summary) {
                 <div class="summary-section">
                     <h4>Call Quality</h4>
                     <div class="cq-badges">
-                        <span class="badge">Emotion: ${summary.cq?.emo || 'unknown'}</span>
-                        <span class="badge">Tone: ${summary.cq?.tone || 'unknown'}</span>
-                        <span class="badge">Engagement: ${summary.cq?.eng || 'unknown'}</span>
+                        <span class="badge">Emotion: ${escapeHtml(summary.cq?.emo || 'unknown')}</span>
+                        <span class="badge">Tone: ${escapeHtml(summary.cq?.tone || 'unknown')}</span>
+                        <span class="badge">Engagement: ${escapeHtml(summary.cq?.eng || 'unknown')}</span>
                     </div>
                 </div>
             </div>
@@ -1197,36 +1201,23 @@ function showCallSummary(summary) {
 }
 
 /**
- * Show an error message when analysis fails.
- * @param {string} error - Error message
- */
-function showAnalysisError(error) {
-    console.error('Analysis error:', error);
-    // Optionally show a toast or small notification
-    // For now, just log it - the user can still download the transcript
-}
-
-/**
- * Close the summary modal.
+ * Close summary modal.
  */
 function closeSummaryModal() {
     const modal = document.getElementById('summary-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
 /**
- * Download the call summary as JSON.
+ * Download call summary as JSON file.
  */
 function downloadCallSummary() {
-    if (!lastCallSummary) return;
+    if (!state.lastCallSummary) return;
 
-    const scenarioName = (lastScenarioName || 'call').replace(/\s+/g, '-').toLowerCase();
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = `call-summary-${scenarioName}-${date}.json`;
+    const name = slugify(state.lastScenarioName || 'call');
+    const filename = `call-summary-${name}-${getTodayISO()}.json`;
 
-    const blob = new Blob([JSON.stringify(lastCallSummary, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(state.lastCallSummary, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
@@ -1238,49 +1229,57 @@ function downloadCallSummary() {
 }
 
 // =============================================================================
-// EVENT LISTENERS
+// EVENT LISTENERS SETUP
 // =============================================================================
 
-// CV file input change
-ui.cvFileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleCVFile(e.target.files[0]);
-    }
-});
+/**
+ * Attach all event listeners.
+ * Called once after DOM is ready.
+ */
+function attachEventListeners() {
+    // CV file input
+    ui.cvFileInput?.addEventListener('change', (e) => {
+        if (e.target.files?.length) handleCVFile(e.target.files[0]);
+    });
 
-// CV remove button
-ui.cvRemoveBtn.addEventListener('click', clearCV);
+    // CV remove button
+    ui.cvRemoveBtn?.addEventListener('click', clearCV);
 
-// Start interview button
-ui.startInterviewBtn.addEventListener('click', startConversation);
+    // Start interview button
+    ui.startInterviewBtn?.addEventListener('click', async () => {
+        setCVUploadDisabled(true);
+        setEditableFieldsDisabled(true);
+        await startConversation();
+    });
 
-// Drag and drop for CV upload
-ui.cvUploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    ui.cvUploadArea.classList.add('dragover');
-});
+    // Drag and drop for CV
+    ui.cvUploadArea?.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        ui.cvUploadArea.classList.add('dragover');
+    });
 
-ui.cvUploadArea.addEventListener('dragleave', () => {
-    ui.cvUploadArea.classList.remove('dragover');
-});
+    ui.cvUploadArea?.addEventListener('dragleave', () => {
+        ui.cvUploadArea.classList.remove('dragover');
+    });
 
-ui.cvUploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    ui.cvUploadArea.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-        handleCVFile(e.dataTransfer.files[0]);
-    }
-});
+    ui.cvUploadArea?.addEventListener('drop', (e) => {
+        e.preventDefault();
+        ui.cvUploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files?.length) handleCVFile(e.dataTransfer.files[0]);
+    });
 
-// Download buttons
-ui.downloadBtn.addEventListener('click', () => downloadTranscript('text'));
-ui.downloadMdBtn.addEventListener('click', () => downloadTranscript('markdown'));
+    // Download buttons
+    ui.downloadBtn?.addEventListener('click', () => downloadTranscript('text'));
+    ui.downloadMdBtn?.addEventListener('click', () => downloadTranscript('markdown'));
+}
 
 // =============================================================================
 // INITIALIZATION
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    initUI();
+    attachEventListeners();
     renderScenarios();
     initSDK();
 });
