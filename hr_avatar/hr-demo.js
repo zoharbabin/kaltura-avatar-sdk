@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.16',
+    VERSION: '1.0.17',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -670,15 +670,18 @@ function setEditableFieldsDisabled(disabled) {
 
 /**
  * Update which start panel is visible based on mode.
+ * Re-enables controls that may have been disabled from a previous conversation.
  * @param {string} mode - DPP mode
  */
 function updateStartPanel(mode) {
     if (mode === 'interview') {
         ui.cvUploadPanel.style.display = 'block';
+        setCVUploadDisabled(false);
         hideStartCallPanel();
     } else {
         ui.cvUploadPanel.style.display = 'none';
         showStartCallPanel(mode);
+        setStartCallPanelDisabled(false);
     }
 }
 
