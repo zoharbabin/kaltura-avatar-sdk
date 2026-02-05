@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.19',
+    VERSION: '1.0.20',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -32,7 +32,7 @@ const CONFIG = Object.freeze({
     ANALYSIS_API_URL: 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com',
 
     // Timing
-    PROMPT_INJECTION_DELAY_MS: 2000,
+    PROMPT_INJECTION_DELAY_MS: 200,
 
     // Avatar display name
     AVATAR_NAME: 'Nora (HR)',

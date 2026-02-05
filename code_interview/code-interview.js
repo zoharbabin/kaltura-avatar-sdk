@@ -10,14 +10,14 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.4',
+    VERSION: '1.0.5',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
     FLOW_ID: 'agent-16',
 
     // Code context injection timing
-    DEBOUNCE_MS: 3000,        // Wait 3s after typing stops
+    DEBOUNCE_MS: 200,         // Wait 200ms after typing stops
     MAX_INTERVAL_MS: 15000,   // Force update every 15s during active coding
 
     // Avatar name
@@ -485,7 +485,7 @@ async function startAvatar() {
         setTimeout(() => {
             injectDPP('initial');
             startCodeTracking();
-        }, 2000);
+        }, 200);
 
     } catch (error) {
         console.error('Failed to start avatar:', error);
