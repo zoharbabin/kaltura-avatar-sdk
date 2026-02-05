@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.6',
+    VERSION: '1.0.7',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -131,34 +131,22 @@ const state = {
             v: '2',
             mode: 'coding_challenge',
 
-            // Problem definition
+            // Session config
+            mtg: {
+                mins: 5
+            },
+
+            // Problem being solved
             problem: {
                 id: this.currentProblem.id,
                 title: this.currentProblem.title,
                 difficulty: this.currentProblem.difficulty,
                 description: this.currentProblem.description,
                 example: 'nums = [2,7,11,15], target = 9 → Output: [0,1]',
-                optimal_complexity: this.currentProblem.optimalComplexity,
-                hints_available: this.currentProblem.hints.length
+                optimal_complexity: this.currentProblem.optimalComplexity
             },
 
-            // Session config
-            mtg: {
-                mins: 5,
-                type: 'Pair Programming'
-            },
-
-            // Instructions - direct and concise
-            inst: [
-                'You are Alex, a friendly senior engineer. This is pair programming, not an interview.',
-                'START IMMEDIATELY: Say "Hey! Let\'s solve Two Sum together. I can see your code as you type - go ahead and start whenever you\'re ready." Then go silent.',
-                'BE MINIMAL: 1 sentence max unless they ask a question. Let them think and code.',
-                'NEVER give the solution or write code. Only hints if stuck.',
-                'When they run code: react to results briefly.',
-                'If all tests pass: "Nice! What\'s the time complexity?" then wrap up.'
-            ],
-
-            // THE LIVE CODE - Real-time state
+            // Live code state (updates in real-time)
             live_code: {
                 language: this.language,
                 current_code: code,
@@ -176,17 +164,14 @@ const state = {
                 output: this.lastRunResult.output
             } : null,
 
-            // Session state
-            interview_state: {
+            // Session timing and progress
+            session: {
                 elapsed_seconds: elapsedSecs,
                 elapsed_minutes: elapsedMins,
                 times_code_was_run: this.runCount,
                 hints_given: this.hintsGiven,
                 phase: this.getCurrentPhase(code, isStarterCode, elapsedSecs)
-            },
-
-            // Action guidance
-            avatar_guidance: this.generateGuidance(code, elapsedSecs)
+            }
         };
     },
 
@@ -260,54 +245,6 @@ const state = {
         }
 
         return observations;
-    },
-
-    /**
-     * Generate contextual guidance for the avatar based on current state.
-     */
-    generateGuidance(code, elapsedSecs) {
-        const isStarterCode = code.trim() === this.currentProblem.starterCode[this.language].trim();
-        const phase = this.getCurrentPhase(code, isStarterCode, elapsedSecs);
-
-        switch (phase) {
-            case 'START':
-                return ['Greet briefly and let them start coding. Stay silent after.'];
-
-            case 'STUCK':
-                if (elapsedSecs < 120) {
-                    return ['They haven\'t started. Ask: "Any questions, or still thinking it through?"'];
-                }
-                return ['Offer a hint: "Think about what data structure gives O(1) lookup."'];
-
-            case 'CODING':
-                const obs = this.analyzeCode(code);
-                if (obs.some(o => o.includes('nested loops'))) {
-                    return ['Using nested loops (O(n²)). Let them finish - works first, optimize later.'];
-                }
-                if (obs.some(o => o.includes('hash') || o.includes('dictionary'))) {
-                    return ['Good approach with hash map! Stay quiet, let them work.'];
-                }
-                return ['Coding in progress. Stay quiet unless they ask for help.'];
-
-            case 'DEBUG':
-                return [`Error: "${this.lastRunResult.error}". Ask: "What do you think caused this?"`];
-
-            case 'PARTIAL':
-                return [`${this.lastRunResult.passed}/${this.lastRunResult.total} passing. Ask about edge cases.`];
-
-            case 'WRONG_OUTPUT':
-                return ['No tests passing. Suggest tracing through with the example input.'];
-
-            case 'COMPLETE':
-                const isOptimal = !code.match(/for.*for/s);
-                if (isOptimal) {
-                    return ['All tests pass! Ask about time complexity, then wrap up.'];
-                }
-                return ['All tests pass (O(n²)). Ask about complexity, then hint at O(n) approach.'];
-
-            default:
-                return ['Observe. Help only if asked.'];
-        }
     }
 };
 
@@ -460,9 +397,9 @@ function injectDPP(reason = 'update') {
     }
 
     console.log(`[DPP] Injected (${reason}):`, {
+        phase: dpp.session.phase,
         code_lines: dpp.live_code.line_count,
-        elapsed_mins: dpp.interview_state.elapsed_minutes,
-        run_count: dpp.interview_state.times_code_was_run
+        elapsed_secs: dpp.session.elapsed_seconds
     });
 }
 
