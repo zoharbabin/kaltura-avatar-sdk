@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.5',
+    VERSION: '1.0.6',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -115,7 +115,6 @@ const state = {
     /**
      * Build the complete DPP object for injection.
      * This must contain ALL context the avatar needs.
-     * IMPORTANT: This overrides the base HR persona completely.
      */
     buildDPP() {
         const code = this.editor?.getValue() || '';
@@ -124,84 +123,52 @@ const state = {
         const elapsedMins = this.sessionStartTime
             ? Math.floor((Date.now() - this.sessionStartTime) / 60000)
             : 0;
+        const elapsedSecs = this.sessionStartTime
+            ? Math.floor((Date.now() - this.sessionStartTime) / 1000)
+            : 0;
 
         return {
             v: '2',
-            mode: 'technical_interview',
+            mode: 'coding_challenge',
 
-            // OVERRIDE: New role for this session
-            org: {
-                n: 'TechCorp',
-                val: 'We believe in collaborative problem-solving and helping engineers grow',
-                tone: 'friendly, technical, supportive'
+            // Problem definition
+            problem: {
+                id: this.currentProblem.id,
+                title: this.currentProblem.title,
+                difficulty: this.currentProblem.difficulty,
+                description: this.currentProblem.description,
+                example: 'nums = [2,7,11,15], target = 9 → Output: [0,1]',
+                optimal_complexity: this.currentProblem.optimalComplexity,
+                hints_available: this.currentProblem.hints.length
             },
 
-            role: {
-                t: 'Software Engineer',
-                id: 'SWE-001',
-                loc: 'Remote',
-                must: ['Problem solving', 'Code fluency', 'Communication'],
-                nice: ['Optimal solutions', 'Clean code']
-            },
-
-            subj: {
-                name: 'Candidate',
-                id: 'CAND-001',
-                prof: {
-                    notes: [
-                        'This is a CODING INTERVIEW, not an HR screen.',
-                        'The candidate is solving a live coding problem.',
-                        'You can see their code in real-time in the live_code section below.'
-                    ]
-                }
-            },
-
+            // Session config
             mtg: {
                 mins: 5,
-                type: 'Quick Coding Challenge',
-                focus: ['Problem solving', 'Code implementation']
+                type: 'Pair Programming'
             },
 
-            // CRITICAL: Instructions that override base behavior
+            // Instructions - direct and concise
             inst: [
-                'IMPORTANT: You are a Senior Software Engineer named Alex. This is a 5-minute coding challenge.',
-                'FORGET any HR persona - you are a technical pair-programmer.',
-                '',
-                '=== KEEP IT BRIEF ===',
-                'This is a SHORT 5-minute exercise. Skip lengthy intros.',
-                'Start by quickly confirming they see the problem, then let them code.',
-                'Keep all responses to 1-2 sentences max.',
-                '',
-                '=== THE PROBLEM ===',
-                `"${this.currentProblem.title}" (${this.currentProblem.difficulty}): ${this.currentProblem.description}`,
-                `Optimal: ${this.currentProblem.optimalComplexity}`,
-                '',
-                '=== YOUR JOB ===',
-                '- Watch their code in "live_code" field below',
-                '- If stuck: give a quick hint',
-                '- If error: help debug briefly',
-                '- If solved: quick congrats + ask about time complexity',
-                '',
-                '=== RULES ===',
-                '- BE CONCISE - no long explanations',
-                '- Never give away the solution',
-                '- Reference their actual code when commenting'
+                'You are Alex, a friendly senior engineer. This is pair programming, not an interview.',
+                'START IMMEDIATELY: Say "Hey! Let\'s solve Two Sum together. I can see your code as you type - go ahead and start whenever you\'re ready." Then go silent.',
+                'BE MINIMAL: 1 sentence max unless they ask a question. Let them think and code.',
+                'NEVER give the solution or write code. Only hints if stuck.',
+                'When they run code: react to results briefly.',
+                'If all tests pass: "Nice! What\'s the time complexity?" then wrap up.'
             ],
 
-            // THE LIVE CODE - This is what the candidate is typing RIGHT NOW
+            // THE LIVE CODE - Real-time state
             live_code: {
                 language: this.language,
                 current_code: code,
                 is_starter_code: isStarterCode,
                 line_count: code.split('\n').length,
-
-                // Analysis hints for the avatar
                 code_observations: this.analyzeCode(code)
             },
 
-            // Execution results from "Run Code" button
+            // Execution results (null until they click Run)
             last_execution: this.lastRunResult ? {
-                timestamp: this.lastRunResult.timestamp,
                 tests_passed: this.lastRunResult.passed,
                 tests_failed: this.lastRunResult.failed,
                 total_tests: this.lastRunResult.total,
@@ -211,15 +178,41 @@ const state = {
 
             // Session state
             interview_state: {
+                elapsed_seconds: elapsedSecs,
                 elapsed_minutes: elapsedMins,
                 times_code_was_run: this.runCount,
-                hints_given_so_far: this.hintsGiven,
-                current_status: this.getInterviewStatus(code, isStarterCode, elapsedMins)
+                hints_given: this.hintsGiven,
+                phase: this.getCurrentPhase(code, isStarterCode, elapsedSecs)
             },
 
-            // Dynamic guidance based on current state
-            avatar_guidance: this.generateGuidance(code, elapsedMins)
+            // Action guidance
+            avatar_guidance: this.generateGuidance(code, elapsedSecs)
         };
+    },
+
+    /**
+     * Determine current phase based on state.
+     */
+    getCurrentPhase(code, isStarterCode, elapsedSecs) {
+        if (this.lastRunResult?.passed === this.lastRunResult?.total && this.lastRunResult?.total > 0) {
+            return 'COMPLETE';
+        }
+        if (this.lastRunResult?.error) {
+            return 'DEBUG';
+        }
+        if (this.lastRunResult?.passed > 0) {
+            return 'PARTIAL';
+        }
+        if (this.lastRunResult && this.lastRunResult.passed === 0) {
+            return 'WRONG_OUTPUT';
+        }
+        if (!isStarterCode) {
+            return 'CODING';
+        }
+        if (isStarterCode && elapsedSecs < 60) {
+            return 'START';
+        }
+        return 'STUCK';
     },
 
     /**
@@ -270,101 +263,51 @@ const state = {
     },
 
     /**
-     * Get a human-readable interview status.
-     */
-    getInterviewStatus(code, isStarterCode, elapsedMins) {
-        if (isStarterCode && elapsedMins < 1) {
-            return 'Just started - candidate reviewing problem';
-        }
-        if (isStarterCode && elapsedMins >= 2) {
-            return 'Candidate has not started coding - may need encouragement';
-        }
-        if (this.lastRunResult?.error) {
-            return 'Code has an error - candidate may need debugging help';
-        }
-        if (this.lastRunResult?.passed === this.lastRunResult?.total && this.lastRunResult?.total > 0) {
-            return 'ALL TESTS PASSED - ready to discuss complexity and alternatives';
-        }
-        if (this.lastRunResult?.passed > 0) {
-            return `Partial progress: ${this.lastRunResult.passed}/${this.lastRunResult.total} tests passing`;
-        }
-        return 'Candidate is actively coding';
-    },
-
-    /**
      * Generate contextual guidance for the avatar based on current state.
-     * These are ACTION ITEMS for what the avatar should do next.
      */
-    generateGuidance(code, elapsedMins) {
-        const guidance = [];
+    generateGuidance(code, elapsedSecs) {
         const isStarterCode = code.trim() === this.currentProblem.starterCode[this.language].trim();
+        const phase = this.getCurrentPhase(code, isStarterCode, elapsedSecs);
 
-        // === PHASE 1: Getting Started (keep it quick!) ===
-        if (isStarterCode && elapsedMins < 1) {
-            guidance.push('ACTION: Quick start - "Hi! Take a look at the Two Sum problem and start coding when ready. I can see your code as you type."');
-            return guidance;
+        switch (phase) {
+            case 'START':
+                return ['Greet briefly and let them start coding. Stay silent after.'];
+
+            case 'STUCK':
+                if (elapsedSecs < 120) {
+                    return ['They haven\'t started. Ask: "Any questions, or still thinking it through?"'];
+                }
+                return ['Offer a hint: "Think about what data structure gives O(1) lookup."'];
+
+            case 'CODING':
+                const obs = this.analyzeCode(code);
+                if (obs.some(o => o.includes('nested loops'))) {
+                    return ['Using nested loops (O(n²)). Let them finish - works first, optimize later.'];
+                }
+                if (obs.some(o => o.includes('hash') || o.includes('dictionary'))) {
+                    return ['Good approach with hash map! Stay quiet, let them work.'];
+                }
+                return ['Coding in progress. Stay quiet unless they ask for help.'];
+
+            case 'DEBUG':
+                return [`Error: "${this.lastRunResult.error}". Ask: "What do you think caused this?"`];
+
+            case 'PARTIAL':
+                return [`${this.lastRunResult.passed}/${this.lastRunResult.total} passing. Ask about edge cases.`];
+
+            case 'WRONG_OUTPUT':
+                return ['No tests passing. Suggest tracing through with the example input.'];
+
+            case 'COMPLETE':
+                const isOptimal = !code.match(/for.*for/s);
+                if (isOptimal) {
+                    return ['All tests pass! Ask about time complexity, then wrap up.'];
+                }
+                return ['All tests pass (O(n²)). Ask about complexity, then hint at O(n) approach.'];
+
+            default:
+                return ['Observe. Help only if asked.'];
         }
-
-        if (isStarterCode && elapsedMins >= 1 && elapsedMins < 2) {
-            guidance.push('ACTION: Brief check-in - "Any questions about the problem, or are you thinking through your approach?"');
-            return guidance;
-        }
-
-        if (isStarterCode && elapsedMins >= 2) {
-            guidance.push('ACTION: Quick hint - "Tip: think about what data structure lets you look up values in O(1) time."');
-            return guidance;
-        }
-
-        // === PHASE 2: Active Coding ===
-        if (!this.lastRunResult) {
-            // They're coding but haven't run yet
-            if (code.includes('for') && code.match(/for.*for/s)) {
-                guidance.push('OBSERVATION: Candidate is using nested loops. This works but is O(n²).');
-                guidance.push('ACTION: Let them finish this approach first. After it works, ask about optimization.');
-            }
-            if (code.includes('dict') || code.includes('{}') || code.includes('Map')) {
-                guidance.push('OBSERVATION: Candidate is using a hash map - good approach for O(n) solution!');
-                guidance.push('ACTION: Encourage them to continue. Ask what they plan to store in it.');
-            }
-            guidance.push('ACTION: Ask about their current approach. "I see you\'re working on the solution - what\'s your strategy here?"');
-            return guidance;
-        }
-
-        // === PHASE 3: After Running Code ===
-        if (this.lastRunResult?.error) {
-            guidance.push(`ERROR DETECTED: "${this.lastRunResult.error}"`);
-            guidance.push('ACTION: Help them debug. Ask "What do you think might be causing this error?"');
-            guidance.push('ACTION: Point to the relevant line if you can identify it from the error message.');
-            return guidance;
-        }
-
-        if (this.lastRunResult?.passed === this.lastRunResult?.total && this.lastRunResult?.total > 0) {
-            guidance.push('SUCCESS: All tests passed! Celebrate this achievement.');
-            guidance.push('ACTION: Say "Great job! Your solution works!" Then ask about complexity.');
-            guidance.push('ACTION: Ask "What\'s the time complexity of your solution?" and "Can you think of any way to optimize it?"');
-
-            // Check if they used O(n²) approach
-            if (code.includes('for') && code.match(/for.*for/s)) {
-                guidance.push('FOLLOW-UP: Their solution is O(n²). After discussing, hint at the O(n) hash map approach.');
-            }
-            return guidance;
-        }
-
-        if (this.lastRunResult && this.lastRunResult.passed > 0 && this.lastRunResult.passed < this.lastRunResult.total) {
-            guidance.push(`PARTIAL SUCCESS: ${this.lastRunResult.passed}/${this.lastRunResult.total} tests passing.`);
-            guidance.push('ACTION: Encourage them! "Good progress - some tests are passing."');
-            guidance.push('ACTION: Ask them to think about edge cases. "What happens with duplicate numbers?"');
-            return guidance;
-        }
-
-        if (this.lastRunResult && this.lastRunResult.passed === 0) {
-            guidance.push('NO TESTS PASSING: Code runs but gives wrong output.');
-            guidance.push('ACTION: Ask them to trace through their code with the example input.');
-            guidance.push('ACTION: "Let\'s walk through your code with nums=[2,7,11,15] and target=9"');
-            return guidance;
-        }
-
-        return ['ACTION: Continue observing. Ask about their progress if they seem stuck.'];
     }
 };
 
