@@ -14,7 +14,7 @@
 // =============================================================================
 // VERSION (update when scenarios change to bust browser cache)
 // =============================================================================
-const APP_VERSION = '1.0.11';
+const APP_VERSION = '1.0.12';
 
 // =============================================================================
 // PDF.js CONFIGURATION
@@ -554,9 +554,10 @@ function setEditableFieldsDisabled(disabled) {
 async function startConversation() {
     if (!currentScenario || !scenarioData) return;
 
-    // Mark conversation as active and disable editable fields
+    // Mark conversation as active and disable editable fields and CV upload
     isConversationActive = true;
     setEditableFieldsDisabled(true);
+    setCVUploadDisabled(true);
 
     // Reset transcript UI
     clearTranscriptUI();
@@ -581,6 +582,7 @@ async function startConversation() {
         // Re-enable fields if start failed
         isConversationActive = false;
         setEditableFieldsDisabled(false);
+        setCVUploadDisabled(false);
     }
 }
 
@@ -742,6 +744,28 @@ function escapeHtml(text) {
 // =============================================================================
 // CV UPLOAD HANDLING
 // =============================================================================
+
+/**
+ * Disable or enable CV upload controls.
+ * @param {boolean} disabled - Whether to disable the CV upload
+ */
+function setCVUploadDisabled(disabled) {
+    // Disable the file input
+    ui.cvFileInput.disabled = disabled;
+
+    // Disable the start interview button
+    ui.startInterviewBtn.disabled = disabled;
+
+    // Disable remove button if CV is uploaded
+    ui.cvRemoveBtn.disabled = disabled;
+
+    // Add/remove disabled class on the upload panel for visual feedback
+    if (disabled) {
+        ui.cvUploadPanel.classList.add('disabled');
+    } else {
+        ui.cvUploadPanel.classList.remove('disabled');
+    }
+}
 
 /**
  * Extract text from a PDF file using PDF.js

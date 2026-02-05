@@ -675,6 +675,23 @@ header p {
     content: ' Processing...';
 }
 
+/* Disabled state for CV upload panel (after interview starts) */
+.cv-upload-panel.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.cv-upload-panel.disabled .cv-upload-area {
+    background: var(--bg-primary);
+    border-color: var(--border-light);
+    cursor: not-allowed;
+}
+
+.cv-upload-panel.disabled .btn-start-interview {
+    background: var(--text-muted);
+    cursor: not-allowed;
+}
+
 /* Start Interview Button */
 .btn-start-interview {
     width: 100%;
