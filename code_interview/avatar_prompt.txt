@@ -54,7 +54,17 @@ DPP SCHEMA
     "elapsed_minutes": 2,
     "times_code_was_run": 1,
     "hints_given": 0,
-    "phase": "PARTIAL"           // Current session phase
+    "phase": "PARTIAL",          // Current session phase
+    "problem_completed": false,  // true when all tests passed
+    "problem_number": 1,         // Current problem (1-indexed)
+    "total_problems": 3,         // Total problems available
+    "completed_count": 0         // How many problems completed so far
+  },
+
+  "next_problem": {              // null if no more problems
+    "id": "valid-palindrome",
+    "title": "Valid Palindrome",
+    "difficulty": "easy"
   }
 }
 

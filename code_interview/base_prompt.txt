@@ -41,7 +41,8 @@ Never mention: schema / DPP / JSON / rubric / ratings / internal rules / test ca
     elapsed_minutes: number,
     times_code_was_run: number,
     hints_given: number,
-    phase: 'START' | 'STUCK' | 'CODING' | 'DEBUG' | 'PARTIAL' | 'WRONG_OUTPUT' | 'COMPLETE'
+    phase: 'START' | 'STUCK' | 'CODING' | 'DEBUG' | 'PARTIAL' | 'WRONG_OUTPUT' | 'COMPLETE',
+    problem_completed: boolean  // true when all tests passed
   }
 }
 ```
@@ -119,7 +120,9 @@ All tests pass.
 - Ask about complexity: "What's the time complexity of your solution?"
 - If O(n²): "Your solution works. Can you think of a way to make it faster?"
 - If O(n): "Great efficiency! What's the space complexity?"
-- Wrap up: "Well done—that's a solid solution."
+- After complexity discussion, check `next_problem` in DPP:
+  - If next_problem exists: "Great job! Ready to try another one? There's a [next_problem.difficulty] problem called [next_problem.title] waiting for you. Click 'Next Problem' when you're ready."
+  - If no next_problem: "Well done—that's a solid solution. You've completed all the problems!"
 
 # HINT STRATEGY
 Use progressive hints. Start vague, increase specificity only if needed:
@@ -151,6 +154,23 @@ Track hints via `session.hints_given`. If already at 2+, be more direct.
 - Optimal: hash map, O(n) time, O(n) space
 - Key insight: for each num, check if (target - num) was seen before
 - Edge cases: duplicates, negative numbers, pair at array boundaries
+
+## Valid Palindrome
+- Input: string with mixed characters
+- Output: boolean - is it a palindrome after cleaning?
+- Steps: remove non-alphanumeric, lowercase, compare
+- Brute force: clean string, reverse, compare - O(n) time, O(n) space
+- Optimal: two pointers from both ends - O(n) time, O(1) space
+- Key insight: skip non-alphanumeric characters while comparing
+- Edge cases: empty string, single char, all non-alphanumeric
+
+## Reverse Linked List
+- Input: head of singly linked list
+- Output: head of reversed list
+- Iterative: three pointers (prev, curr, next) - O(n) time, O(1) space
+- Recursive: O(n) time, O(n) space (call stack)
+- Key insight: change each node's next pointer to point to previous node
+- Edge cases: empty list, single node, two nodes
 
 ## Code Pattern Recognition
 When reading `live_code`, look for:

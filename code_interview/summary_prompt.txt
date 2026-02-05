@@ -8,16 +8,16 @@ The Summary JSON Schema to follow:
 {
   "type": "json_schema",
   "json_schema": {
-    "name": "code_interview_summary_v1_0",
+    "name": "code_interview_summary_v1_1",
     "schema": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Code Interview Avatar post-session structured summary.\n\nFILLING RULES (global):\n- Use ONLY: (1) the conversation transcript + (2) the Dynamic Page Prompt (DPP) including live_code and last_execution.\n- Be evidence-based. Base assessments on observed code, execution results, and verbal explanations.\n- Never invent IDs: ctx.problem_id must come from DPP.problem.id (or \"\"). ctx.subj_id must come from DPP.subj.id (or \"\").\n- Prefer short, factual phrasing. Focus on technical observations.",
+      "description": "Code Interview Avatar post-session structured summary.\n\nFILLING RULES (global):\n- Use ONLY: (1) the conversation transcript + (2) the Dynamic Page Prompt (DPP) including live_code and last_execution.\n- Be evidence-based. Base assessments on observed code, execution results, and verbal explanations.\n- Never invent IDs: ctx.problem_id must come from DPP.problem.id (or \"\"). ctx.subj_id must come from DPP.subj.id (or \"\").\n- Prefer short, factual phrasing. Focus on technical observations.\n- IMPORTANT: Evaluate POTENTIAL separately from outcome. A candidate who fails to solve the problem may still demonstrate high creativity, tenacity, aptitude, and talent. Recognize good thinking even in incomplete solutions.",
       "properties": {
         "v": {
           "type": "string",
-          "enum": ["1.0"],
-          "description": "Schema version. Must be exactly \"1.0\"."
+          "enum": ["1.1"],
+          "description": "Schema version. Must be exactly \"1.1\"."
         },
 
         "mode": {
@@ -159,10 +159,75 @@ The Summary JSON Schema to follow:
           "required": ["problem_solving", "code_fluency", "communication", "efficiency_awareness"]
         },
 
+        "potential_assessment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Assessment of candidate potential INDEPENDENT of whether they solved the problem.\nFILLING RULES:\n- Evaluate based on HOW they approached the problem, not just the outcome\n- A candidate who fails but shows great thinking should score high\n- Look for: novel approaches, persistence through difficulty, learning from hints, adaptability\n- Score each dimension 1-5: 1=no evidence, 2=weak, 3=adequate, 4=strong, 5=exceptional",
+          "properties": {
+            "creativity": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Creative thinking and novel approaches.",
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=conventional only, 3=some original thinking, 5=highly innovative approach" },
+                "analysis": { "type": "string", "description": "2-3 sentences: Did they try unconventional approaches? Consider multiple solutions? Think outside the box? Show original problem decomposition?" }
+              },
+              "required": ["score_1_5", "analysis"]
+            },
+            "tenacity": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Persistence and determination through challenges.",
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=gave up quickly, 3=reasonable persistence, 5=exceptional determination" },
+                "analysis": { "type": "string", "description": "2-3 sentences: Did they persist through errors? Keep trying after failures? Maintain focus under pressure? Show resilience when stuck?" }
+              },
+              "required": ["score_1_5", "analysis"]
+            },
+            "aptitude": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Natural ability to learn and adapt during the session.",
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=struggled to incorporate feedback, 3=learned adequately, 5=rapid learning and adaptation" },
+                "analysis": { "type": "string", "description": "2-3 sentences: How quickly did they incorporate hints? Did they build on feedback? Show improved understanding as session progressed? Demonstrate ability to learn in real-time?" }
+              },
+              "required": ["score_1_5", "analysis"]
+            },
+            "propensity": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Natural inclination toward engineering mindset and systematic thinking.",
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=disorganized/random, 3=somewhat systematic, 5=highly methodical engineering mindset" },
+                "analysis": { "type": "string", "description": "2-3 sentences: Did they approach systematically? Test incrementally? Consider edge cases naturally? Show engineering intuition?" }
+              },
+              "required": ["score_1_5", "analysis"]
+            },
+            "talent_indicators": {
+              "type": "array",
+              "items": { "type": "string" },
+              "maxItems": 5,
+              "description": "Specific observed behaviors that indicate raw talent or high potential, regardless of outcome. Examples: 'Immediately identified the core insight', 'Asked clarifying questions that showed deep understanding', 'Debugging approach was methodical despite syntax struggles', 'Verbalized optimization ideas even without implementing them'."
+            },
+            "potential_vs_performance": {
+              "type": "string",
+              "enum": ["potential_exceeds_performance", "potential_matches_performance", "performance_exceeds_potential", "insufficient_evidence"],
+              "description": "Does their potential appear higher than their actual performance in this session? 'potential_exceeds_performance' = showed great thinking but didn't finish; 'performance_exceeds_potential' = got lucky or used memorized solution."
+            },
+            "growth_trajectory": {
+              "type": "string",
+              "enum": ["high_growth", "moderate_growth", "limited_growth", "unknown"],
+              "description": "Predicted ability to grow and improve with training/mentorship based on observed aptitude and receptiveness."
+            }
+          },
+          "required": ["creativity", "tenacity", "aptitude", "propensity", "talent_indicators", "potential_vs_performance", "growth_trajectory"]
+        },
+
         "fit": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Overall technical fit assessment.\nFILLING RULES:\n- score_0_100: holistic score based on skill_assessment dimensions and solution outcome\n- rec: recommendation based on problem difficulty vs performance\n- conf: confidence based on amount of evidence observed",
+          "description": "Overall technical fit assessment.\nFILLING RULES:\n- score_0_100: holistic score weighing BOTH skill_assessment AND potential_assessment (potential should count ~40%)\n- A candidate with high potential but incomplete solution can still score well (e.g., 65-75)\n- rec: recommendation considering both current performance AND growth potential\n- conf: confidence based on amount of evidence observed",
           "properties": {
             "score_0_100": { "type": "number", "minimum": 0, "maximum": 100, "description": "Holistic technical fit score." },
             "rec": {
@@ -283,6 +348,7 @@ The Summary JSON Schema to follow:
         "turns",
         "overview",
         "skill_assessment",
+        "potential_assessment",
         "fit",
         "strengths",
         "areas_for_improvement",

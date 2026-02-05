@@ -10,11 +10,14 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.7',
+    VERSION: '1.1.0',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
     FLOW_ID: 'agent-16',
+
+    // Call analysis API endpoint (same as HR demo)
+    ANALYSIS_API_URL: 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com',
 
     // Code context injection timing
     DEBOUNCE_MS: 200,         // Wait 200ms after typing stops
@@ -71,18 +74,128 @@ console.log(twoSum([2, 7, 11, 15], 9));`
             'You can solve this in O(n) time with O(n) space'
         ],
         optimalComplexity: 'O(n) time, O(n) space'
+    },
+
+    'valid-palindrome': {
+        id: 'valid-palindrome',
+        title: 'Valid Palindrome',
+        difficulty: 'easy',
+        description: `A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.
+
+Given a string s, return true if it is a palindrome, or false otherwise.`,
+        examples: [
+            {
+                input: 's = "A man, a plan, a canal: Panama"',
+                output: 'true',
+                explanation: '"amanaplanacanalpanama" is a palindrome.'
+            }
+        ],
+        starterCode: {
+            python: `def is_palindrome(s):
+    # Your code here
+    pass
+
+# Test
+print(is_palindrome("A man, a plan, a canal: Panama"))`,
+            javascript: `function isPalindrome(s) {
+    // Your code here
+
+}
+
+// Test
+console.log(isPalindrome("A man, a plan, a canal: Panama"));`
+        },
+        testCases: [
+            { input: ['A man, a plan, a canal: Panama'], expected: true },
+            { input: ['race a car'], expected: false },
+            { input: [' '], expected: true }
+        ],
+        hints: [
+            'First, filter out non-alphanumeric characters and convert to lowercase',
+            'Compare the string with its reverse',
+            'You can also use two pointers from both ends'
+        ],
+        optimalComplexity: 'O(n) time, O(1) space with two pointers'
+    },
+
+    'reverse-linked-list': {
+        id: 'reverse-linked-list',
+        title: 'Reverse Linked List',
+        difficulty: 'medium',
+        description: `Given the head of a singly linked list, reverse the list, and return the reversed list.
+
+Each node has a value and a next pointer to the following node (or null/None for the last node).`,
+        examples: [
+            {
+                input: 'head = [1,2,3,4,5]',
+                output: '[5,4,3,2,1]',
+                explanation: 'The list is reversed.'
+            }
+        ],
+        starterCode: {
+            python: `class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def reverse_list(head):
+    # Your code here
+    pass
+
+# Test with: 1 -> 2 -> 3 -> 4 -> 5
+head = ListNode(1, ListNode(2, ListNode(3, ListNode(4, ListNode(5)))))
+result = reverse_list(head)
+# Print result
+vals = []
+while result:
+    vals.append(result.val)
+    result = result.next
+print(vals)`,
+            javascript: `class ListNode {
+    constructor(val = 0, next = null) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+function reverseList(head) {
+    // Your code here
+
+}
+
+// Test with: 1 -> 2 -> 3 -> 4 -> 5
+const head = new ListNode(1, new ListNode(2, new ListNode(3, new ListNode(4, new ListNode(5)))));
+const result = reverseList(head);
+// Print result
+const vals = [];
+let curr = result;
+while (curr) {
+    vals.push(curr.val);
+    curr = curr.next;
+}
+console.log(vals);`
+        },
+        testCases: [
+            { input: [[1,2,3,4,5]], expected: [5,4,3,2,1] },
+            { input: [[1,2]], expected: [2,1] },
+            { input: [[]], expected: [] }
+        ],
+        hints: [
+            'You need to change where each node points to',
+            'Keep track of the previous node as you iterate',
+            'Think about what happens to the head and tail'
+        ],
+        optimalComplexity: 'O(n) time, O(1) space'
     }
 };
+
+// Problem sequence
+const PROBLEM_ORDER = ['two-sum', 'valid-palindrome', 'reverse-linked-list'];
 
 // =============================================================================
 // APPLICATION STATE
 // =============================================================================
 
-/**
- * Master DPP object - this is what gets injected to the avatar.
- * Since each injection replaces previous context, we maintain
- * everything in this single object.
- */
 const state = {
     // SDK instance
     sdk: null,
@@ -90,8 +203,10 @@ const state = {
     // Monaco editor instance
     editor: null,
 
-    // Current problem
+    // Current problem tracking
+    currentProblemIndex: 0,
     currentProblem: PROBLEMS['two-sum'],
+    completedProblems: [],  // IDs of completed problems
 
     // Selected language
     language: 'python',
@@ -109,12 +224,17 @@ const state = {
     lastRunResult: null,
     runCount: 0,
 
-    // Hints given
+    // Hints given (per problem)
     hintsGiven: 0,
+
+    // Problem completion tracking
+    problemCompleted: false,
+
+    // Analysis results
+    lastSessionSummary: null,
 
     /**
      * Build the complete DPP object for injection.
-     * This must contain ALL context the avatar needs.
      */
     buildDPP() {
         const code = this.editor?.getValue() || '';
@@ -126,6 +246,22 @@ const state = {
         const elapsedSecs = this.sessionStartTime
             ? Math.floor((Date.now() - this.sessionStartTime) / 1000)
             : 0;
+
+        const phase = this.getCurrentPhase(code, isStarterCode, elapsedSecs);
+
+        // Track if problem was just completed
+        if (phase === 'COMPLETE' && !this.problemCompleted) {
+            this.problemCompleted = true;
+            // Add to completed list if not already there
+            if (!this.completedProblems.includes(this.currentProblem.id)) {
+                this.completedProblems.push(this.currentProblem.id);
+            }
+        }
+
+        // Determine next problem
+        const nextProblemIndex = this.currentProblemIndex + 1;
+        const hasNextProblem = nextProblemIndex < PROBLEM_ORDER.length;
+        const nextProblem = hasNextProblem ? PROBLEMS[PROBLEM_ORDER[nextProblemIndex]] : null;
 
         return {
             v: '2',
@@ -142,7 +278,7 @@ const state = {
                 title: this.currentProblem.title,
                 difficulty: this.currentProblem.difficulty,
                 description: this.currentProblem.description,
-                example: 'nums = [2,7,11,15], target = 9 → Output: [0,1]',
+                example: this.currentProblem.examples[0]?.input + ' → ' + this.currentProblem.examples[0]?.output,
                 optimal_complexity: this.currentProblem.optimalComplexity
             },
 
@@ -170,8 +306,20 @@ const state = {
                 elapsed_minutes: elapsedMins,
                 times_code_was_run: this.runCount,
                 hints_given: this.hintsGiven,
-                phase: this.getCurrentPhase(code, isStarterCode, elapsedSecs)
-            }
+                phase: phase,
+                problem_completed: this.problemCompleted,
+                // Progress tracking
+                problem_number: this.currentProblemIndex + 1,
+                total_problems: PROBLEM_ORDER.length,
+                completed_count: this.completedProblems.length
+            },
+
+            // Next problem info (for avatar to offer transition)
+            next_problem: hasNextProblem ? {
+                id: nextProblem.id,
+                title: nextProblem.title,
+                difficulty: nextProblem.difficulty
+            } : null
         };
     },
 
@@ -264,9 +412,14 @@ function initUI() {
         languageSelect: document.getElementById('language-select'),
         runBtn: document.getElementById('run-btn'),
         resetBtn: document.getElementById('reset-btn'),
+        nextProblemBtn: document.getElementById('next-problem-btn'),
+        endSessionBtn: document.getElementById('end-session-btn'),
         outputContent: document.getElementById('output-content'),
         testResults: document.getElementById('test-results'),
-        debugDpp: document.getElementById('debug-dpp')
+        debugDpp: document.getElementById('debug-dpp'),
+        problemTitle: document.getElementById('problem-title'),
+        problemDifficulty: document.getElementById('problem-difficulty'),
+        problemDescription: document.getElementById('problem-description')
     };
 }
 
@@ -283,7 +436,6 @@ function initMonaco() {
         });
 
         require(['vs/editor/editor.main'], function() {
-            // Create editor
             state.editor = monaco.editor.create(ui.editorContainer, {
                 value: state.currentProblem.starterCode[state.language],
                 language: state.language,
@@ -299,7 +451,6 @@ function initMonaco() {
                 wordWrap: 'on'
             });
 
-            // Listen for code changes
             state.editor.onDidChangeModelContent(() => {
                 onCodeChange();
             });
@@ -320,30 +471,26 @@ function initSDK() {
         container: '#avatar-container'
     });
 
-    // State changes
     state.sdk.on('stateChange', ({ from, to }) => {
         updateStatus(to);
     });
 
-    // Avatar spoke
     state.sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
         const text = data?.agentContent || data;
         console.log(`${CONFIG.AVATAR_NAME}:`, text);
     });
 
-    // User spoke
     state.sdk.on(KalturaAvatarSDK.Events.USER_TRANSCRIPTION, (data) => {
         const text = data?.userTranscription || data;
         console.log('User:', text);
     });
 
-    // Conversation ended
     state.sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, () => {
         updateStatus('ended');
         stopCodeTracking();
+        analyzeSession();
     });
 
-    // Errors
     state.sdk.on('error', ({ message }) => {
         console.error('SDK Error:', message);
         updateStatus('error');
@@ -355,13 +502,9 @@ async function startAvatar() {
         updateStatus('connecting');
         await state.sdk.start();
 
-        // Hide loading state
         ui.loadingState.style.display = 'none';
-
-        // Record session start
         state.sessionStartTime = Date.now();
 
-        // Inject initial DPP after short delay
         setTimeout(() => {
             injectDPP('initial');
             startCodeTracking();
@@ -377,10 +520,6 @@ async function startAvatar() {
 // DPP INJECTION
 // =============================================================================
 
-/**
- * Inject the current DPP state to the avatar.
- * @param {string} reason - Why this injection is happening (for debugging)
- */
 function injectDPP(reason = 'update') {
     if (!state.sdk) return;
 
@@ -391,7 +530,6 @@ function injectDPP(reason = 'update') {
     state.lastInjectedCode = dpp.live_code.current_code;
     state.lastInjectionTime = Date.now();
 
-    // Update debug panel
     if (ui.debugDpp) {
         ui.debugDpp.textContent = `// Injection reason: ${reason}\n// Time: ${new Date().toLocaleTimeString()}\n\n${JSON.stringify(dpp, null, 2)}`;
     }
@@ -407,49 +545,32 @@ function injectDPP(reason = 'update') {
 // CODE CHANGE TRACKING
 // =============================================================================
 
-/**
- * Called when code changes in the editor.
- * Uses debouncing to avoid flooding the avatar with updates.
- */
 function onCodeChange() {
-    // Clear existing debounce timer
     if (state.debounceTimer) {
         clearTimeout(state.debounceTimer);
     }
 
-    // Set new debounce timer
     state.debounceTimer = setTimeout(() => {
         const currentCode = state.editor?.getValue() || '';
-
-        // Only inject if code actually changed
         if (currentCode !== state.lastInjectedCode) {
             injectDPP('code_change');
         }
     }, CONFIG.DEBOUNCE_MS);
 }
 
-/**
- * Start periodic code tracking (for max interval updates).
- */
 function startCodeTracking() {
-    // Clear any existing interval
     stopCodeTracking();
 
-    // Set up periodic injection
     state.intervalTimer = setInterval(() => {
         const currentCode = state.editor?.getValue() || '';
         const timeSinceLastInjection = Date.now() - state.lastInjectionTime;
 
-        // Inject if code changed and it's been a while
         if (currentCode !== state.lastInjectedCode && timeSinceLastInjection >= CONFIG.MAX_INTERVAL_MS) {
             injectDPP('interval');
         }
     }, CONFIG.MAX_INTERVAL_MS);
 }
 
-/**
- * Stop code tracking.
- */
 function stopCodeTracking() {
     if (state.debounceTimer) {
         clearTimeout(state.debounceTimer);
@@ -465,10 +586,6 @@ function stopCodeTracking() {
 // CODE EXECUTION (SIMULATED)
 // =============================================================================
 
-/**
- * Run the current code against test cases.
- * This is a simplified simulation - real implementation would use Judge0 or similar.
- */
 function runCode() {
     const code = state.editor.getValue();
     state.runCount++;
@@ -477,13 +594,11 @@ function runCode() {
     ui.outputContent.className = 'output-content';
     ui.testResults.textContent = '';
 
-    // Simulate execution delay
     setTimeout(() => {
         try {
             const result = simulateExecution(code, state.language);
             state.lastRunResult = result;
 
-            // Update UI
             if (result.error) {
                 ui.outputContent.textContent = `Error: ${result.error}`;
                 ui.outputContent.className = 'output-content error';
@@ -498,9 +613,13 @@ function runCode() {
                 ui.testResults.className = result.passed === result.total
                     ? 'test-results pass'
                     : 'test-results fail';
+
+                // Show next problem button if all tests pass
+                if (result.passed === result.total) {
+                    showNextProblemButton();
+                }
             }
 
-            // Inject updated state to avatar
             injectDPP('code_run');
 
         } catch (e) {
@@ -519,21 +638,13 @@ function runCode() {
     }, 500);
 }
 
-/**
- * Simulate code execution (placeholder for real execution service).
- */
 function simulateExecution(code, language) {
     const testCases = state.currentProblem.testCases;
     let passed = 0;
-    let failed = 0;
     let output = '';
     let error = null;
 
-    // Very basic simulation - just check for some patterns
-    // Real implementation would use Judge0 API
-
     if (language === 'python') {
-        // Check for common Python errors
         if (code.includes('pass') && !code.includes('return')) {
             return {
                 timestamp: new Date().toISOString(),
@@ -545,29 +656,23 @@ function simulateExecution(code, language) {
             };
         }
 
-        // Check for hash map solution (optimal)
         if (code.includes('dict') || code.includes('{}') || code.includes('enumerate')) {
             passed = testCases.length;
             output = 'Output: [0, 1]\n\nAll test cases passed!\nYour solution appears to use a hash map approach - nice!';
         }
-        // Check for nested loop solution (works but O(n²))
         else if (code.includes('for') && code.match(/for.*for/s)) {
             passed = testCases.length;
             output = 'Output: [0, 1]\n\nAll test cases passed!\nNote: Your solution uses nested loops (O(n²)). Can you think of a more efficient approach?';
         }
-        // Some attempt made
         else if (code.includes('for') || code.includes('while')) {
             passed = 1;
-            failed = testCases.length - 1;
             output = 'Output: [0, 1]\n\nPartial success - 1 test case passed.\nSome edge cases are failing. Consider what happens with duplicate values.';
         }
         else {
             passed = 0;
-            failed = testCases.length;
             output = 'Output: None\n\nNo test cases passed yet. Keep working on your solution!';
         }
     } else if (language === 'javascript') {
-        // Similar checks for JavaScript
         if (code.includes('Map') || code.includes('{}') || code.includes('Object')) {
             passed = testCases.length;
             output = 'Output: [0, 1]\n\nAll test cases passed!\nYour solution appears to use a hash map approach - nice!';
@@ -578,12 +683,10 @@ function simulateExecution(code, language) {
         }
         else if (code.includes('for') || code.includes('while')) {
             passed = 1;
-            failed = testCases.length - 1;
             output = 'Output: [0, 1]\n\nPartial success - 1 test case passed.';
         }
         else {
             passed = 0;
-            failed = testCases.length;
             output = 'No test cases passed yet.';
         }
     }
@@ -592,10 +695,289 @@ function simulateExecution(code, language) {
         timestamp: new Date().toISOString(),
         error: error,
         passed: passed,
-        failed: failed,
+        failed: testCases.length - passed,
         total: testCases.length,
         output: output
     };
+}
+
+// =============================================================================
+// SESSION ANALYSIS
+// =============================================================================
+
+async function endSession() {
+    if (!state.sdk) return;
+
+    stopCodeTracking();
+    updateStatus('analyzing...');
+    showAnalyzingState();
+
+    try {
+        await state.sdk.stop();
+    } catch (e) {
+        console.log('SDK stop:', e.message);
+    }
+
+    await analyzeSession();
+}
+
+function showAnalyzingState() {
+    ui.avatarContainer.innerHTML = `
+        <div class="analyzing-state">
+            <div class="spinner"></div>
+            <p>Analyzing session...</p>
+        </div>
+    `;
+}
+
+async function analyzeSession() {
+    if (!state.sdk) {
+        console.log('No session to analyze');
+        return;
+    }
+
+    const transcript = state.sdk.getTranscript();
+    if (!transcript?.length) {
+        console.log('Empty transcript, skipping analysis');
+        showSessionSummary(null);
+        return;
+    }
+
+    try {
+        const dpp = state.buildDPP();
+
+        // Format transcript for API
+        const formattedTranscript = transcript.map(entry => ({
+            role: entry.role === 'Avatar' ? 'assistant' : 'user',
+            content: entry.text
+        }));
+
+        // Add coding-specific context
+        const analysisContext = {
+            ...dpp,
+            analysis_type: 'coding_interview',
+            final_code: state.editor?.getValue() || '',
+            summary_prompt: 'Analyze this coding interview session. Evaluate problem-solving ability, code quality, communication, and efficiency awareness. Provide a fit score, strengths, areas for improvement, and hiring recommendation.'
+        };
+
+        const response = await fetch(CONFIG.ANALYSIS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                transcript: formattedTranscript,
+                dpp: analysisContext
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            state.lastSessionSummary = result.summary;
+            console.log('Session analysis complete:', state.lastSessionSummary);
+            showSessionSummary(result.summary);
+        } else {
+            console.error('Analysis failed:', result.error);
+            showSessionSummary(null);
+        }
+    } catch (error) {
+        console.error('Failed to analyze session:', error);
+        showSessionSummary(null);
+    }
+}
+
+function showSessionSummary(summary) {
+    let modal = document.getElementById('summary-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'summary-modal';
+        modal.className = 'summary-modal';
+        document.body.appendChild(modal);
+    }
+
+    if (!summary) {
+        modal.innerHTML = `
+            <div class="summary-modal-content">
+                <div class="summary-header">
+                    <h3>Session Complete</h3>
+                    <button class="summary-close-btn" onclick="closeSummaryModal()">&times;</button>
+                </div>
+                <div class="summary-body">
+                    <p>Session ended. Analysis not available.</p>
+                </div>
+                <div class="summary-footer">
+                    <button class="btn btn-primary" onclick="closeSummaryModal()">Close</button>
+                </div>
+            </div>
+        `;
+        modal.style.display = 'flex';
+        return;
+    }
+
+    const fitScore = summary.fit?.score_0_100;
+    const fitClass = fitScore >= 70 ? 'good' : fitScore >= 50 ? 'ok' : 'poor';
+    const rec = summary.fit?.rec || 'N/A';
+
+    modal.innerHTML = `
+        <div class="summary-modal-content">
+            <div class="summary-header">
+                <h3>Coding Session Summary</h3>
+                <button class="summary-close-btn" onclick="closeSummaryModal()">&times;</button>
+            </div>
+            <div class="summary-body">
+                <div class="summary-section">
+                    <h4>Overview</h4>
+                    <p>${escapeHtml(summary.overview || 'No overview available')}</p>
+                </div>
+
+                ${fitScore != null ? `
+                <div class="summary-section">
+                    <h4>Technical Fit</h4>
+                    <div class="fit-score ${fitClass}">
+                        <span class="score-value">${fitScore}</span>
+                        <span class="score-label">/ 100</span>
+                    </div>
+                    <div class="recommendation">Recommendation: <strong>${rec.replace(/_/g, ' ')}</strong></div>
+                    ${summary.skill_assessment ? `
+                    <div class="skill-dims">
+                        ${Object.entries(summary.skill_assessment).map(([key, val]) => `
+                            <div class="dim">
+                                <span class="dim-name">${escapeHtml(key.replace(/_/g, ' '))}</span>
+                                <span class="dim-score">${val.score_1_5}/5</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.potential_assessment ? `
+                <div class="summary-section">
+                    <h4>Potential Assessment</h4>
+                    <p class="potential-note">Evaluated independently of problem outcome</p>
+                    <div class="potential-dims">
+                        <div class="potential-dim">
+                            <div class="potential-header">
+                                <span class="potential-name">Creativity</span>
+                                <span class="potential-score">${summary.potential_assessment.creativity?.score_1_5 || '?'}/5</span>
+                            </div>
+                            <p class="potential-analysis">${escapeHtml(summary.potential_assessment.creativity?.analysis || '')}</p>
+                        </div>
+                        <div class="potential-dim">
+                            <div class="potential-header">
+                                <span class="potential-name">Tenacity</span>
+                                <span class="potential-score">${summary.potential_assessment.tenacity?.score_1_5 || '?'}/5</span>
+                            </div>
+                            <p class="potential-analysis">${escapeHtml(summary.potential_assessment.tenacity?.analysis || '')}</p>
+                        </div>
+                        <div class="potential-dim">
+                            <div class="potential-header">
+                                <span class="potential-name">Aptitude</span>
+                                <span class="potential-score">${summary.potential_assessment.aptitude?.score_1_5 || '?'}/5</span>
+                            </div>
+                            <p class="potential-analysis">${escapeHtml(summary.potential_assessment.aptitude?.analysis || '')}</p>
+                        </div>
+                        <div class="potential-dim">
+                            <div class="potential-header">
+                                <span class="potential-name">Propensity</span>
+                                <span class="potential-score">${summary.potential_assessment.propensity?.score_1_5 || '?'}/5</span>
+                            </div>
+                            <p class="potential-analysis">${escapeHtml(summary.potential_assessment.propensity?.analysis || '')}</p>
+                        </div>
+                    </div>
+                    ${summary.potential_assessment.talent_indicators?.length ? `
+                    <div class="talent-indicators">
+                        <strong>Talent Indicators:</strong>
+                        <ul>
+                            ${summary.potential_assessment.talent_indicators.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+                        </ul>
+                    </div>
+                    ` : ''}
+                    <div class="potential-meta">
+                        <span class="badge potential-badge">${escapeHtml((summary.potential_assessment.potential_vs_performance || '').replace(/_/g, ' '))}</span>
+                        <span class="badge growth-badge">Growth: ${escapeHtml((summary.potential_assessment.growth_trajectory || '').replace(/_/g, ' '))}</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.strengths?.length ? `
+                <div class="summary-section">
+                    <h4>Strengths</h4>
+                    <ul class="strengths-list">
+                        ${summary.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${summary.areas_for_improvement?.length ? `
+                <div class="summary-section">
+                    <h4>Areas for Improvement</h4>
+                    <ul class="improvement-list">
+                        ${summary.areas_for_improvement.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${summary.gaps?.length ? `
+                <div class="summary-section">
+                    <h4>Gaps & Follow-ups</h4>
+                    <ul class="gaps-list">
+                        ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || '')}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${summary.next_steps?.length ? `
+                <div class="summary-section">
+                    <h4>Next Steps</h4>
+                    <ul class="next-steps-list">
+                        ${summary.next_steps.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                <div class="summary-section">
+                    <h4>Session Quality</h4>
+                    <div class="cq-badges">
+                        <span class="badge">Emotion: ${escapeHtml(summary.cq?.emo || 'unknown')}</span>
+                        <span class="badge">Tone: ${escapeHtml(summary.cq?.tone || 'unknown')}</span>
+                        <span class="badge">Engagement: ${escapeHtml(summary.cq?.eng || 'unknown')}</span>
+                        ${summary.cq?.think_aloud !== undefined ? `<span class="badge">Think Aloud: ${summary.cq.think_aloud ? 'Yes' : 'No'}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="summary-footer">
+                <button class="btn btn-secondary" onclick="downloadSessionSummary()">Download JSON</button>
+                <button class="btn btn-primary" onclick="closeSummaryModal()">Close</button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeSummaryModal() {
+    const modal = document.getElementById('summary-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function downloadSessionSummary() {
+    if (!state.lastSessionSummary) return;
+
+    const blob = new Blob([JSON.stringify(state.lastSessionSummary, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `coding-session-${state.currentProblem.id}-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // =============================================================================
@@ -620,6 +1002,9 @@ function updateStatus(status) {
         case 'ended':
             ui.statusText.textContent = 'Session ended';
             break;
+        case 'analyzing...':
+            ui.statusText.textContent = 'Analyzing...';
+            break;
         case 'error':
             ui.statusDot.classList.add('error');
             ui.statusText.textContent = 'Connection error';
@@ -635,6 +1020,7 @@ function resetCode() {
     }
     state.lastRunResult = null;
     state.runCount = 0;
+    state.problemCompleted = false;
     ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
     ui.outputContent.className = 'output-content';
     ui.testResults.textContent = '';
@@ -645,20 +1031,107 @@ function resetCode() {
 function onLanguageChange(newLanguage) {
     state.language = newLanguage;
 
-    // Update Monaco language
     if (state.editor) {
         monaco.editor.setModelLanguage(state.editor.getModel(), newLanguage);
         state.editor.setValue(state.currentProblem.starterCode[newLanguage]);
     }
 
-    // Reset run results
     state.lastRunResult = null;
+    state.problemCompleted = false;
     ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
     ui.outputContent.className = 'output-content';
     ui.testResults.textContent = '';
 
     injectDPP('language_change');
 }
+
+/**
+ * Switch to the next problem in the sequence.
+ */
+function switchToNextProblem() {
+    const nextIndex = state.currentProblemIndex + 1;
+
+    if (nextIndex >= PROBLEM_ORDER.length) {
+        console.log('No more problems available');
+        return false;
+    }
+
+    // Update state
+    state.currentProblemIndex = nextIndex;
+    state.currentProblem = PROBLEMS[PROBLEM_ORDER[nextIndex]];
+    state.problemCompleted = false;
+    state.lastRunResult = null;
+    state.runCount = 0;
+    state.hintsGiven = 0;
+
+    // Update editor
+    if (state.editor) {
+        state.editor.setValue(state.currentProblem.starterCode[state.language]);
+    }
+
+    // Update UI
+    updateProblemUI();
+
+    // Reset output
+    ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
+    ui.outputContent.className = 'output-content';
+    ui.testResults.textContent = '';
+
+    // Hide next problem button
+    if (ui.nextProblemBtn) {
+        ui.nextProblemBtn.style.display = 'none';
+    }
+
+    // Inject updated DPP
+    injectDPP('problem_switch');
+
+    console.log(`Switched to problem: ${state.currentProblem.title}`);
+    return true;
+}
+
+/**
+ * Update the problem display in the UI.
+ */
+function updateProblemUI() {
+    const problem = state.currentProblem;
+
+    if (ui.problemTitle) {
+        ui.problemTitle.textContent = problem.title;
+    }
+
+    if (ui.problemDifficulty) {
+        ui.problemDifficulty.textContent = problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1);
+        ui.problemDifficulty.className = `difficulty ${problem.difficulty}`;
+    }
+
+    if (ui.problemDescription) {
+        const example = problem.examples[0];
+        ui.problemDescription.innerHTML = `
+            <p>${escapeHtml(problem.description).replace(/\n/g, '</p><p>')}</p>
+            <div class="example">
+                <strong>Example:</strong>
+                <pre>Input: ${escapeHtml(example.input)}
+Output: ${escapeHtml(example.output)}
+Explanation: ${escapeHtml(example.explanation)}</pre>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Show the "Next Problem" button when problem is completed.
+ */
+function showNextProblemButton() {
+    if (!ui.nextProblemBtn) return;
+
+    const hasNext = state.currentProblemIndex + 1 < PROBLEM_ORDER.length;
+    if (hasNext && state.problemCompleted) {
+        ui.nextProblemBtn.style.display = 'inline-flex';
+    }
+}
+
+// Make switchToNextProblem available globally for avatar integration
+window.switchToNextProblem = switchToNextProblem;
 
 // =============================================================================
 // EVENT LISTENERS
@@ -667,6 +1140,8 @@ function onLanguageChange(newLanguage) {
 function attachEventListeners() {
     ui.runBtn.addEventListener('click', runCode);
     ui.resetBtn.addEventListener('click', resetCode);
+    ui.nextProblemBtn?.addEventListener('click', switchToNextProblem);
+    ui.endSessionBtn?.addEventListener('click', endSession);
     ui.languageSelect.addEventListener('change', (e) => {
         onLanguageChange(e.target.value);
     });
@@ -681,10 +1156,7 @@ async function init() {
     attachEventListeners();
     initSDK();
 
-    // Initialize Monaco editor
     await initMonaco();
-
-    // Start the avatar
     await startAvatar();
 }
 

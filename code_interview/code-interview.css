@@ -393,6 +393,393 @@ header p {
    RESPONSIVE
    ============================================================================= */
 
+/* =============================================================================
+   END SESSION BUTTON
+   ============================================================================= */
+
+.btn-next {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-next:hover {
+    background: var(--accent-hover);
+}
+
+.btn-end {
+    background: var(--error);
+    color: white;
+}
+
+.btn-end:hover {
+    filter: brightness(1.15);
+}
+
+/* =============================================================================
+   ANALYZING STATE
+   ============================================================================= */
+
+.analyzing-state {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px;
+}
+
+.analyzing-state .spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.analyzing-state p {
+    font-size: 15px;
+}
+
+/* =============================================================================
+   SUMMARY MODAL
+   ============================================================================= */
+
+.summary-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.summary-modal-content {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.summary-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.summary-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.summary-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.summary-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.summary-section {
+    margin-bottom: 24px;
+}
+
+.summary-section:last-child {
+    margin-bottom: 0;
+}
+
+.summary-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-section p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.summary-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.summary-section li {
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 6px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.summary-section li::before {
+    content: '\2022';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+}
+
+.strengths-list li::before {
+    color: var(--success);
+}
+
+.improvement-list li::before {
+    color: var(--warning);
+}
+
+.gaps-list li::before {
+    color: var(--error);
+}
+
+/* Potential Assessment */
+.potential-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 16px !important;
+}
+
+.potential-dims {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.potential-dim {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.potential-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.potential-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.potential-score {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(14, 99, 156, 0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.potential-analysis {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 !important;
+}
+
+.talent-indicators {
+    margin-bottom: 16px;
+}
+
+.talent-indicators strong {
+    font-size: 13px;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 8px;
+}
+
+.talent-indicators ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.talent-indicators li {
+    font-size: 13px;
+    color: var(--success);
+    padding: 4px 0;
+}
+
+.talent-indicators li::before {
+    color: var(--success);
+}
+
+.potential-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.potential-badge {
+    background: rgba(14, 99, 156, 0.2) !important;
+    color: var(--accent) !important;
+}
+
+.growth-badge {
+    background: rgba(78, 201, 176, 0.2) !important;
+    color: var(--success) !important;
+}
+
+/* Fit Score */
+.fit-score {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 16px 24px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.fit-score.good {
+    background: rgba(78, 201, 176, 0.15);
+}
+
+.fit-score.ok {
+    background: rgba(204, 167, 0, 0.15);
+}
+
+.fit-score.poor {
+    background: rgba(241, 76, 76, 0.15);
+}
+
+.fit-score .score-value {
+    font-size: 36px;
+    font-weight: 700;
+}
+
+.fit-score.good .score-value {
+    color: var(--success);
+}
+
+.fit-score.ok .score-value {
+    color: var(--warning);
+}
+
+.fit-score.poor .score-value {
+    color: var(--error);
+}
+
+.fit-score .score-label {
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+.recommendation {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.recommendation strong {
+    color: var(--text-primary);
+    text-transform: capitalize;
+}
+
+/* Skill Dimensions */
+.skill-dims {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.dim {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+}
+
+.dim-name {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+
+.dim-score {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Session Quality Badges */
+.cq-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.badge {
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+
+/* Modal Footer */
+.summary-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
 @media (max-width: 900px) {
     .main-container {
         grid-template-columns: 1fr;
@@ -402,5 +789,13 @@ header p {
     .avatar-panel {
         border-right: none;
         border-bottom: 1px solid var(--border);
+    }
+
+    .summary-modal-content {
+        max-height: 90vh;
+    }
+
+    .skill-dims {
+        grid-template-columns: 1fr;
     }
 }
