@@ -1,0 +1,299 @@
+DPP = Dynamic Page Prompt.
+Output one JSON object that exactly matches the JSON Schema below. Return valid JSON only (no markdown, no commentary, no extra keys, no back ticks).
+Follow the field descriptions in the schema precisely as your instructions and directions to fill the values in the JSON.
+If the schema field description references data from the Dynamic Page Prompt (DPP) be sure to copy the data exactly as stated, be highly accurate and diligent, and ensure complete and clean data.
+
+The Summary JSON Schema to follow:
+
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "code_interview_summary_v1_0",
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Code Interview Avatar post-session structured summary.\n\nFILLING RULES (global):\n- Use ONLY: (1) the conversation transcript + (2) the Dynamic Page Prompt (DPP) including live_code and last_execution.\n- Be evidence-based. Base assessments on observed code, execution results, and verbal explanations.\n- Never invent IDs: ctx.problem_id must come from DPP.problem.id (or \"\"). ctx.subj_id must come from DPP.subj.id (or \"\").\n- Prefer short, factual phrasing. Focus on technical observations.",
+      "properties": {
+        "v": {
+          "type": "string",
+          "enum": ["1.0"],
+          "description": "Schema version. Must be exactly \"1.0\"."
+        },
+
+        "mode": {
+          "type": "string",
+          "enum": ["coding_challenge", "code_review", "technical_mentoring"],
+          "description": "Session mode. Must match DPP.mode or default to coding_challenge."
+        },
+
+        "ctx": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Indexing fields derived from DPP.\nFILLING RULES:\n- org = DPP.org.n (or \"\")\n- problem_id = DPP.problem.id (or \"\")\n- problem_title = DPP.problem.title (or \"\")\n- difficulty = DPP.problem.difficulty (or \"\")\n- language = DPP.live_code.language (or \"\")\n- person = DPP.subj.name (or \"\")\n- subj_id = DPP.subj.id (or \"\")",
+          "properties": {
+            "org": { "type": "string", "description": "Company/context name. Set from DPP.org.n (or \"\")." },
+            "problem_id": { "type": "string", "description": "Problem identifier. Set from DPP.problem.id (or \"\")." },
+            "problem_title": { "type": "string", "description": "Problem title. Set from DPP.problem.title (or \"\")." },
+            "difficulty": { "type": "string", "enum": ["easy", "medium", "hard", ""], "description": "Problem difficulty. Set from DPP.problem.difficulty (or \"\")." },
+            "language": { "type": "string", "description": "Programming language used. Set from DPP.live_code.language (or \"\")." },
+            "person": { "type": "string", "description": "Candidate display name. Set from DPP.subj.name (or \"\")." },
+            "subj_id": { "type": "string", "description": "Subject identifier. MUST be set from DPP.subj.id (or \"\")." }
+          },
+          "required": ["org", "problem_id", "problem_title", "difficulty", "language", "person", "subj_id"]
+        },
+
+        "session_stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.interview_state.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.interview_state.times_code_was_run\n- hints_given = DPP.interview_state.hints_given_so_far\n- tests_passed/total from DPP.last_execution (or 0 if null)",
+          "properties": {
+            "elapsed_minutes": { "type": "integer", "minimum": 0, "description": "Actual session duration in minutes." },
+            "target_minutes": { "type": "integer", "minimum": 0, "description": "Target session duration from DPP.mtg.mins." },
+            "times_code_run": { "type": "integer", "minimum": 0, "description": "Number of times candidate ran their code." },
+            "hints_given": { "type": "integer", "minimum": 0, "description": "Number of hints provided during session." },
+            "tests_passed": { "type": "integer", "minimum": 0, "description": "Final number of tests passed." },
+            "tests_total": { "type": "integer", "minimum": 0, "description": "Total number of test cases." }
+          },
+          "required": ["elapsed_minutes", "target_minutes", "times_code_run", "hints_given", "tests_passed", "tests_total"]
+        },
+
+        "solution_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Analysis of the candidate's solution approach.\nFILLING RULES:\n- solved = true only if tests_passed == tests_total and tests_total > 0\n- approach: describe the algorithm/data structures used\n- time_complexity/space_complexity: use Big-O notation or \"unknown\" if not determinable\n- optimal = true if solution matches DPP.problem.optimal_complexity\n- code_quality: brief assessment of code organization, naming, readability",
+          "properties": {
+            "solved": { "type": "boolean", "description": "True if all tests passed." },
+            "approach": {
+              "type": "string",
+              "enum": ["brute_force", "hash_map", "two_pointer", "sorting", "dynamic_programming", "recursion", "greedy", "other", "incomplete"],
+              "description": "Primary algorithmic approach used."
+            },
+            "approach_description": { "type": "string", "description": "One-sentence description of their approach." },
+            "time_complexity": { "type": "string", "description": "Time complexity in Big-O notation (e.g., \"O(n)\", \"O(n²)\", \"unknown\")." },
+            "space_complexity": { "type": "string", "description": "Space complexity in Big-O notation (e.g., \"O(1)\", \"O(n)\", \"unknown\")." },
+            "optimal": { "type": "boolean", "description": "True if solution matches optimal complexity for the problem." },
+            "code_quality": {
+              "type": "string",
+              "enum": ["excellent", "good", "adequate", "poor", "incomplete"],
+              "description": "Overall code quality assessment."
+            },
+            "code_observations": {
+              "type": "array",
+              "items": { "type": "string" },
+              "maxItems": 5,
+              "description": "Up to 5 specific observations about the code (good patterns, issues, style notes)."
+            }
+          },
+          "required": ["solved", "approach", "approach_description", "time_complexity", "space_complexity", "optimal", "code_quality", "code_observations"]
+        },
+
+        "debugging_history": {
+          "type": "array",
+          "description": "Record of errors encountered and how they were resolved.\nFILLING RULES:\n- Include each distinct error from execution attempts\n- resolved = true if they fixed it themselves\n- hint_needed = true if avatar provided debugging guidance",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_type": { "type": "string", "description": "Type of error (e.g., IndexError, TypeError, SyntaxError, logic_error)." },
+              "description": { "type": "string", "description": "Brief description of what went wrong." },
+              "resolved": { "type": "boolean", "description": "True if candidate fixed this error." },
+              "hint_needed": { "type": "boolean", "description": "True if avatar provided hint to resolve." }
+            },
+            "required": ["error_type", "description", "resolved", "hint_needed"]
+          }
+        },
+
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of back-and-forth exchanges (AI↔user pairs) in the session."
+        },
+
+        "overview": {
+          "type": "string",
+          "description": "Concise internal narrative summary (50–150 words).\nFILLING RULES:\n- Summarize: problem attempted, approach taken, outcome (solved/partial/stuck)\n- Note: time to solution, hints needed, debugging struggles\n- Include: complexity awareness, optimization discussion if it occurred\n- Mention: communication quality (did they think aloud, ask questions, explain their reasoning?)"
+        },
+
+        "skill_assessment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Technical skill evaluation based on observed evidence.\nFILLING RULES:\n- Score each dimension 1-5 based on evidence from code + conversation\n- 1=poor/no evidence, 2=weak, 3=adequate, 4=good, 5=excellent\n- evidence must be one factual sentence grounded in the session\n- If insufficient evidence, score 3 and note \"insufficient evidence\" in evidence field",
+          "properties": {
+            "problem_solving": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "evidence": { "type": "string", "description": "One sentence: Did they break down the problem, identify patterns, handle edge cases?" }
+              },
+              "required": ["score_1_5", "evidence"]
+            },
+            "code_fluency": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "evidence": { "type": "string", "description": "One sentence: Syntax comfort, debugging ability, code organization." }
+              },
+              "required": ["score_1_5", "evidence"]
+            },
+            "communication": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "evidence": { "type": "string", "description": "One sentence: Did they explain thinking, ask clarifying questions, respond to hints?" }
+              },
+              "required": ["score_1_5", "evidence"]
+            },
+            "efficiency_awareness": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "evidence": { "type": "string", "description": "One sentence: Did they discuss complexity, consider optimization, understand tradeoffs?" }
+              },
+              "required": ["score_1_5", "evidence"]
+            }
+          },
+          "required": ["problem_solving", "code_fluency", "communication", "efficiency_awareness"]
+        },
+
+        "fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Overall technical fit assessment.\nFILLING RULES:\n- score_0_100: holistic score based on skill_assessment dimensions and solution outcome\n- rec: recommendation based on problem difficulty vs performance\n- conf: confidence based on amount of evidence observed",
+          "properties": {
+            "score_0_100": { "type": "number", "minimum": 0, "maximum": 100, "description": "Holistic technical fit score." },
+            "rec": {
+              "type": "string",
+              "enum": ["strong_yes", "yes", "lean_yes", "lean_no", "no"],
+              "description": "Hiring recommendation based on technical performance."
+            },
+            "conf": {
+              "type": "string",
+              "enum": ["high", "medium", "low"],
+              "description": "Confidence in assessment based on evidence quality."
+            },
+            "rationale": { "type": "string", "description": "One-sentence rationale for the recommendation." }
+          },
+          "required": ["score_0_100", "rec", "conf", "rationale"]
+        },
+
+        "strengths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 4,
+          "description": "Up to 4 observed strengths (factual, evidence-based)."
+        },
+
+        "areas_for_improvement": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 4,
+          "description": "Up to 4 areas for improvement (factual, constructive)."
+        },
+
+        "gaps": {
+          "type": "array",
+          "description": "Technical gaps or areas not assessed.\nFILLING RULES:\n- Include if: problem not solved, complexity not discussed, edge cases missed\n- next_q should be a follow-up question to assess this gap",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "missing": { "type": "string", "description": "What was not covered or demonstrated." },
+              "why_matters": { "type": "string", "description": "Why this gap affects the assessment." },
+              "next_q": { "type": "string", "description": "Follow-up question or task to close the gap." }
+            },
+            "required": ["missing", "why_matters", "next_q"]
+          }
+        },
+
+        "cq": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Session quality/behavioral signals.\nFILLING RULES:\n- emo: observed emotional state during coding\n- tone: interaction quality with the avatar\n- eng: engagement level (active participation, responsiveness)",
+          "properties": {
+            "emo": {
+              "type": "string",
+              "enum": ["calm", "confident", "neutral", "frustrated", "stressed", "discouraged", "positive", "unknown"],
+              "description": "Observed emotional state during session."
+            },
+            "tone": {
+              "type": "string",
+              "enum": ["collaborative", "independent", "receptive", "defensive", "disengaged", "unknown"],
+              "description": "Interaction style with the avatar."
+            },
+            "eng": {
+              "type": "string",
+              "enum": ["high", "medium", "low", "unknown"],
+              "description": "Engagement level based on responsiveness and effort."
+            },
+            "think_aloud": { "type": "boolean", "description": "True if candidate verbalized their thought process." }
+          },
+          "required": ["emo", "tone", "eng", "think_aloud"]
+        },
+
+        "risk": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Risk/escalation tracking.\nFILLING RULES:\n- flags should include \"none\" only if no other flags apply\n- For coding sessions, most common flags are frustration-related",
+          "properties": {
+            "flags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "excessive_frustration",
+                  "gave_up_early",
+                  "abusive_language",
+                  "self_harm_signal",
+                  "needs_human_review",
+                  "suspected_cheating"
+                ]
+              },
+              "description": "Select all applicable flags. Include \"none\" only if no flags apply."
+            },
+            "escalated": { "type": "boolean", "description": "True if escalation occurred or is required." },
+            "reason": { "type": "string", "description": "Why escalation did/would occur (or empty if none)." }
+          },
+          "required": ["flags", "escalated", "reason"]
+        },
+
+        "next_steps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 5,
+          "description": "2-5 recommended next steps.\nExamples:\n- 'Schedule follow-up with harder problem to confirm skill level'\n- 'Discuss optimization approaches in next round'\n- 'Practice edge case identification'\n- 'Move to system design round'"
+        },
+
+        "final_code": {
+          "type": "string",
+          "description": "The final code submitted by the candidate. Copy from DPP.live_code.current_code."
+        }
+      },
+      "required": [
+        "v",
+        "mode",
+        "ctx",
+        "session_stats",
+        "solution_analysis",
+        "debugging_history",
+        "turns",
+        "overview",
+        "skill_assessment",
+        "fit",
+        "strengths",
+        "areas_for_improvement",
+        "gaps",
+        "cq",
+        "risk",
+        "next_steps",
+        "final_code"
+      ]
+    }
+  }
+}
+
+You must output ONLY valid JSON that respects the schema above without the backtick marks. Ensure that the json is complete and valid.
