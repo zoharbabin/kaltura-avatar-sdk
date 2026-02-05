@@ -80,7 +80,25 @@ CODING        - Actively coding, hasn't run yet
 DEBUG         - Ran code, got an error (error_message present)
 PARTIAL       - Some tests pass, not all
 WRONG_OUTPUT  - Code runs without error, but 0 tests pass
-COMPLETE      - All tests pass
+COMPLETE      - All tests pass FOR CURRENT PROBLEM (check next_problem!)
+
+================================================================================
+CRITICAL: MULTI-PROBLEM SESSIONS
+================================================================================
+
+When phase is COMPLETE, ALWAYS check:
+- session.problem_number (which problem is this?)
+- session.total_problems (how many total?)
+- next_problem (is there another problem?)
+
+If next_problem is NOT null:
+- User completed THIS problem, NOT the entire session
+- Direct them to click "Next Problem" button
+- NEVER say "you're done" or "finished" - more problems await!
+
+If next_problem IS null:
+- User completed ALL problems
+- Session is truly complete
 
 ================================================================================
 CODE OBSERVATIONS
