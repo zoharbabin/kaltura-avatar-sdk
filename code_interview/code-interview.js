@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.1.0',
+    VERSION: '1.1.1',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -920,8 +920,24 @@ function showSessionSummary(summary) {
                 ${summary.gaps?.length ? `
                 <div class="summary-section">
                     <h4>Gaps & Follow-ups</h4>
+                    <p class="section-note">Issues in attempted problem(s)</p>
                     <ul class="gaps-list">
                         ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || '')}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${summary.remaining_problems?.length ? `
+                <div class="summary-section">
+                    <h4>Remaining Problems</h4>
+                    <p class="section-note">Not attempted in this session</p>
+                    <ul class="remaining-list">
+                        ${summary.remaining_problems.map(p => `
+                            <li>
+                                <span class="problem-name">${escapeHtml(p.problem_title || '')}</span>
+                                <span class="difficulty-tag ${p.difficulty || ''}">${escapeHtml(p.difficulty || '')}</span>
+                            </li>
+                        `).join('')}
                     </ul>
                 </div>
                 ` : ''}

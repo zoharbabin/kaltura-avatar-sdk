@@ -8,7 +8,7 @@ The Summary JSON Schema to follow:
 {
   "type": "json_schema",
   "json_schema": {
-    "name": "code_interview_summary_v1_1",
+    "name": "code_interview_summary_v1_2",
     "schema": {
       "type": "object",
       "additionalProperties": false,
@@ -16,8 +16,8 @@ The Summary JSON Schema to follow:
       "properties": {
         "v": {
           "type": "string",
-          "enum": ["1.1"],
-          "description": "Schema version. Must be exactly \"1.1\"."
+          "enum": ["1.2"],
+          "description": "Schema version. Must be exactly \"1.2\"."
         },
 
         "mode": {
@@ -45,16 +45,18 @@ The Summary JSON Schema to follow:
         "session_stats": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.session.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.session.times_code_was_run\n- hints_given = DPP.session.hints_given\n- tests_passed/total from DPP.last_execution (or 0 if null)",
+          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.session.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.session.times_code_was_run\n- hints_given = DPP.session.hints_given\n- tests_passed/total from DPP.last_execution (or 0 if null)\n- problems_completed = DPP.session.completed_count\n- problems_total = DPP.session.total_problems",
           "properties": {
             "elapsed_minutes": { "type": "integer", "minimum": 0, "description": "Actual session duration in minutes." },
             "target_minutes": { "type": "integer", "minimum": 0, "description": "Target session duration from DPP.mtg.mins." },
             "times_code_run": { "type": "integer", "minimum": 0, "description": "Number of times candidate ran their code." },
             "hints_given": { "type": "integer", "minimum": 0, "description": "Number of hints provided during session." },
-            "tests_passed": { "type": "integer", "minimum": 0, "description": "Final number of tests passed." },
-            "tests_total": { "type": "integer", "minimum": 0, "description": "Total number of test cases." }
+            "tests_passed": { "type": "integer", "minimum": 0, "description": "Final number of tests passed (on current problem)." },
+            "tests_total": { "type": "integer", "minimum": 0, "description": "Total number of test cases (on current problem)." },
+            "problems_completed": { "type": "integer", "minimum": 0, "description": "Number of problems fully solved in this session." },
+            "problems_total": { "type": "integer", "minimum": 0, "description": "Total number of problems available in this session." }
           },
-          "required": ["elapsed_minutes", "target_minutes", "times_code_run", "hints_given", "tests_passed", "tests_total"]
+          "required": ["elapsed_minutes", "target_minutes", "times_code_run", "hints_given", "tests_passed", "tests_total", "problems_completed", "problems_total"]
         },
 
         "solution_analysis": {
@@ -111,7 +113,7 @@ The Summary JSON Schema to follow:
 
         "overview": {
           "type": "string",
-          "description": "Concise internal narrative summary (50–150 words).\nFILLING RULES:\n- Summarize: problem attempted, approach taken, outcome (solved/partial/stuck)\n- Note: time to solution, hints needed, debugging struggles\n- Include: complexity awareness, optimization discussion if it occurred\n- Mention: communication quality (did they think aloud, ask questions, explain their reasoning?)"
+          "description": "Concise internal narrative summary (50–150 words).\nFILLING RULES:\n- Start with: 'Completed X of Y problems in this session.'\n- Summarize: which problem(s) attempted, approach taken, outcome (solved/partial/stuck)\n- Note: time to solution, hints needed, debugging struggles\n- Include: complexity awareness, optimization discussion if it occurred\n- Mention: communication quality (did they think aloud, ask questions, explain their reasoning?)\n- If problems remain: note they are available for future sessions, NOT as a failure"
         },
 
         "skill_assessment": {
@@ -261,16 +263,31 @@ The Summary JSON Schema to follow:
 
         "gaps": {
           "type": "array",
-          "description": "Technical gaps or areas not assessed.\nFILLING RULES:\n- Include if: problem not solved, complexity not discussed, edge cases missed\n- next_q should be a follow-up question to assess this gap",
+          "description": "Technical gaps in the ATTEMPTED problem(s) only.\nFILLING RULES:\n- Only include gaps from problems the candidate actually worked on\n- Include if: current problem not solved, complexity not discussed, edge cases missed\n- Do NOT list other problems they didn't attempt as 'gaps' - those go in remaining_problems\n- next_q should be a follow-up question to assess this gap",
           "items": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "missing": { "type": "string", "description": "What was not covered or demonstrated." },
+              "missing": { "type": "string", "description": "What was not covered or demonstrated in the attempted problem." },
               "why_matters": { "type": "string", "description": "Why this gap affects the assessment." },
               "next_q": { "type": "string", "description": "Follow-up question or task to close the gap." }
             },
             "required": ["missing", "why_matters", "next_q"]
+          }
+        },
+
+        "remaining_problems": {
+          "type": "array",
+          "description": "Problems available in the session that the candidate did NOT attempt.\nFILLING RULES:\n- Check DPP.next_problem and session.problems_completed vs session.total_problems\n- List each unattempted problem by title\n- This is NOT a gap or failure - just tracking what wasn't reached\n- If all problems were attempted, this should be an empty array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "problem_title": { "type": "string", "description": "Title of the problem not attempted." },
+              "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"], "description": "Difficulty level of the problem." },
+              "reason_not_attempted": { "type": "string", "enum": ["session_ended_early", "time_ran_out", "chose_to_stop", "unknown"], "description": "Why this problem wasn't attempted." }
+            },
+            "required": ["problem_title", "difficulty", "reason_not_attempted"]
           }
         },
 
@@ -353,6 +370,7 @@ The Summary JSON Schema to follow:
         "strengths",
         "areas_for_improvement",
         "gaps",
+        "remaining_problems",
         "cq",
         "risk",
         "next_steps",

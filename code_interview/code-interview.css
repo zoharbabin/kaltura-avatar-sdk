@@ -558,6 +558,61 @@ header p {
     color: var(--error);
 }
 
+/* Section Notes */
+.section-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 8px !important;
+    margin-top: -8px !important;
+}
+
+/* Remaining Problems */
+.remaining-list {
+    list-style: none !important;
+    padding: 0 !important;
+}
+
+.remaining-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0 !important;
+    padding-left: 0 !important;
+}
+
+.remaining-list li::before {
+    display: none;
+}
+
+.remaining-list .problem-name {
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.remaining-list .difficulty-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.remaining-list .difficulty-tag.easy {
+    background: rgba(78, 201, 176, 0.2);
+    color: var(--success);
+}
+
+.remaining-list .difficulty-tag.medium {
+    background: rgba(204, 167, 0, 0.2);
+    color: var(--warning);
+}
+
+.remaining-list .difficulty-tag.hard {
+    background: rgba(241, 76, 76, 0.2);
+    color: var(--error);
+}
+
 /* Potential Assessment */
 .potential-note {
     font-size: 12px;
