@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.0.2',
+    VERSION: '1.0.3',
 
     // Kaltura Avatar SDK (same as HR demo)
     CLIENT_ID: '115767973963657880005',
@@ -508,7 +508,7 @@ function injectDPP(reason = 'update') {
     const json = JSON.stringify(dpp);
 
     state.sdk.injectPrompt(json);
-    state.lastInjectedCode = dpp.code_state.code;
+    state.lastInjectedCode = dpp.live_code.current_code;
     state.lastInjectionTime = Date.now();
 
     // Update debug panel
@@ -517,9 +517,9 @@ function injectDPP(reason = 'update') {
     }
 
     console.log(`[DPP] Injected (${reason}):`, {
-        code_lines: dpp.code_state.line_count,
-        elapsed_mins: dpp.session.elapsed_mins,
-        run_count: dpp.session.run_count
+        code_lines: dpp.live_code.line_count,
+        elapsed_mins: dpp.interview_state.elapsed_minutes,
+        run_count: dpp.interview_state.times_code_was_run
     });
 }
 
