@@ -1,0 +1,406 @@
+/**
+ * Code Interview POC - AI Pair Programming Styles
+ */
+
+/* =============================================================================
+   RESET & BASE
+   ============================================================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    /* Colors */
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --bg-hover: #3e3e42;
+
+    --text-primary: #cccccc;
+    --text-secondary: #9d9d9d;
+    --text-muted: #6d6d6d;
+
+    --accent: #0e639c;
+    --accent-hover: #1177bb;
+    --success: #4ec9b0;
+    --error: #f14c4c;
+    --warning: #cca700;
+
+    --border: #3e3e42;
+
+    /* Sizing */
+    --radius: 6px;
+    --header-height: 80px;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* =============================================================================
+   LAYOUT
+   ============================================================================= */
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+header {
+    padding: 16px 24px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+header p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.main-container {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* =============================================================================
+   AVATAR PANEL
+   ============================================================================= */
+
+.avatar-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+}
+
+#avatar-container {
+    flex: 1;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+}
+
+.loading-state {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.loading-state .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.avatar-status {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+
+.status-dot.connected {
+    background: var(--success);
+}
+
+.status-dot.error {
+    background: var(--error);
+}
+
+/* =============================================================================
+   CODING PANEL
+   ============================================================================= */
+
+.coding-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Problem Section */
+.problem-section {
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.problem-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.problem-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.difficulty {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.difficulty.easy {
+    background: rgba(78, 201, 176, 0.2);
+    color: var(--success);
+}
+
+.difficulty.medium {
+    background: rgba(204, 167, 0, 0.2);
+    color: var(--warning);
+}
+
+.difficulty.hard {
+    background: rgba(241, 76, 76, 0.2);
+    color: var(--error);
+}
+
+.problem-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.problem-description p {
+    margin-bottom: 8px;
+}
+
+.problem-description code {
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--success);
+}
+
+.problem-description .example {
+    background: var(--bg-tertiary);
+    padding: 12px;
+    border-radius: var(--radius);
+    margin-top: 12px;
+}
+
+.problem-description .example strong {
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 8px;
+}
+
+.problem-description .example pre {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+}
+
+/* Editor Toolbar */
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+}
+
+.editor-toolbar select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.toolbar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.btn-run {
+    background: var(--success);
+    color: var(--bg-primary);
+}
+
+.btn-run:hover {
+    filter: brightness(1.1);
+}
+
+.btn-reset {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-reset:hover {
+    background: var(--bg-hover);
+}
+
+/* Editor Container */
+#editor-container {
+    flex: 1;
+    min-height: 250px;
+}
+
+/* Output Panel */
+.output-panel {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    max-height: 150px;
+    display: flex;
+    flex-direction: column;
+}
+
+.output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.output-header h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.test-results {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.test-results.pass {
+    color: var(--success);
+}
+
+.test-results.fail {
+    color: var(--error);
+}
+
+.output-content {
+    flex: 1;
+    padding: 12px 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.output-content.error {
+    color: var(--error);
+}
+
+.output-content.success {
+    color: var(--success);
+}
+
+/* =============================================================================
+   DEBUG PANEL
+   ============================================================================= */
+
+.debug-panel {
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+}
+
+.debug-panel summary {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.debug-panel summary:hover {
+    color: var(--text-secondary);
+}
+
+.debug-panel pre {
+    padding: 12px 16px;
+    max-height: 200px;
+    overflow: auto;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 900px) {
+    .main-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 250px 1fr;
+    }
+
+    .avatar-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+}
