@@ -184,6 +184,15 @@ Track hints via `session.hints_given`. If already at 2+, be more direct.
 - Key insight: change each node's next pointer to point to previous node
 - Edge cases: empty list, single node, two nodes
 
+## Fizz Buzz
+- Input: integer n
+- Output: array of strings from 1 to n with substitutions
+- Rules: divisible by 3 → "Fizz", by 5 → "Buzz", by both → "FizzBuzz"
+- Complexity: O(n) time, O(n) space
+- Key insight: check divisibility by 15 first (or 3 and 5 together), then 3, then 5
+- Common mistakes: wrong order of checks, forgetting to convert numbers to strings
+- Edge cases: n=1, n=3, n=5, n=15
+
 ## Code Pattern Recognition
 When reading `live_code`, look for:
 - `for...in...for` (nested loops) → O(n²) approach

@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.1.1',
+    VERSION: '1.1.2',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -186,11 +186,56 @@ console.log(vals);`
             'Think about what happens to the head and tail'
         ],
         optimalComplexity: 'O(n) time, O(1) space'
+    },
+
+    'fizz-buzz': {
+        id: 'fizz-buzz',
+        title: 'Fizz Buzz',
+        difficulty: 'easy',
+        description: `Given an integer n, return a string array answer (1-indexed) where:
+
+- answer[i] == "FizzBuzz" if i is divisible by 3 and 5.
+- answer[i] == "Fizz" if i is divisible by 3.
+- answer[i] == "Buzz" if i is divisible by 5.
+- answer[i] == i (as a string) if none of the above conditions are true.`,
+        examples: [
+            {
+                input: 'n = 15',
+                output: '["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]',
+                explanation: 'Numbers divisible by 3 become "Fizz", by 5 become "Buzz", by both become "FizzBuzz".'
+            }
+        ],
+        starterCode: {
+            python: `def fizz_buzz(n):
+    # Your code here
+    pass
+
+# Test
+print(fizz_buzz(15))`,
+            javascript: `function fizzBuzz(n) {
+    // Your code here
+
+}
+
+// Test
+console.log(fizzBuzz(15));`
+        },
+        testCases: [
+            { input: [3], expected: ["1", "2", "Fizz"] },
+            { input: [5], expected: ["1", "2", "Fizz", "4", "Buzz"] },
+            { input: [15], expected: ["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"] }
+        ],
+        hints: [
+            'Loop through numbers 1 to n',
+            'Check divisibility by 15 first (both 3 and 5), then by 3, then by 5',
+            'Use the modulo operator (%) to check divisibility'
+        ],
+        optimalComplexity: 'O(n) time, O(n) space'
     }
 };
 
 // Problem sequence
-const PROBLEM_ORDER = ['two-sum', 'valid-palindrome', 'reverse-linked-list'];
+const PROBLEM_ORDER = ['two-sum', 'valid-palindrome', 'reverse-linked-list', 'fizz-buzz'];
 
 // =============================================================================
 // APPLICATION STATE
