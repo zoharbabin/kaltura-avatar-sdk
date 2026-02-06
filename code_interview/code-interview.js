@@ -1125,11 +1125,9 @@ function switchToNextProblem() {
         return false;
     }
 
-    // Update state
+    // Update problem state
     state.currentProblemIndex = nextIndex;
     state.currentProblem = PROBLEMS[PROBLEM_ORDER[nextIndex]];
-    state.problemCompleted = false;
-    state.lastRunResult = null;
     state.runCount = 0;
     state.hintsGiven = 0;
 
@@ -1140,11 +1138,7 @@ function switchToNextProblem() {
 
     // Update UI
     updateProblemUI();
-
-    // Reset output
-    ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
-    ui.outputContent.className = 'output-content';
-    ui.testResults.textContent = '';
+    resetOutputState();
 
     // Hide next problem button
     if (ui.nextProblemBtn) {
