@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.2.0',
+    VERSION: '1.5.4',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -18,6 +18,9 @@ const CONFIG = Object.freeze({
 
     // Call analysis API endpoint (same as HR demo)
     ANALYSIS_API_URL: 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com',
+
+    // Summary prompt file path (loaded at runtime)
+    SUMMARY_PROMPT_PATH: 'summary_prompt.txt',
 
     // Code context injection timing
     DEBOUNCE_MS: 200,         // Wait 200ms after typing stops
@@ -242,6 +245,16 @@ const PROBLEM_ORDER = ['two-sum', 'valid-palindrome', 'reverse-linked-list', 'fi
 // =============================================================================
 
 const state = {
+    // Current screen: 'opening' | 'interview' | 'end'
+    currentScreen: 'opening',
+
+    // User info (collected at registration)
+    user: {
+        firstName: '',
+        lastName: '',
+        email: ''
+    },
+
     // SDK instance
     sdk: null,
 
@@ -278,6 +291,9 @@ const state = {
     // Analysis results
     lastSessionSummary: null,
 
+    // Custom summary prompt (loaded from file)
+    summaryPrompt: null,
+
     /**
      * Build the complete DPP object for injection.
      */
@@ -312,9 +328,16 @@ const state = {
             v: '2',
             mode: 'coding_challenge',
 
+            // User info (for personalized interaction)
+            user: {
+                first_name: this.user.firstName,
+                full_name: `${this.user.firstName} ${this.user.lastName}`.trim(),
+                email: this.user.email
+            },
+
             // Session config
             mtg: {
-                mins: 5
+                mins: 10
             },
 
             // Problem being solved
@@ -353,10 +376,12 @@ const state = {
                 hints_given: this.hintsGiven,
                 phase: phase,
                 problem_completed: this.problemCompleted,
-                // Progress tracking
-                problem_number: this.currentProblemIndex + 1,
+                // Progress: "Problem X of Y"
+                current_problem: this.currentProblemIndex + 1,
                 total_problems: PROBLEM_ORDER.length,
-                completed_count: this.completedProblems.length
+                // Pre-calculated - just read these directly
+                is_last_problem: !hasNextProblem,
+                action_when_done: hasNextProblem ? 'SWITCH' : 'END'
             },
 
             // Next problem info (for avatar to offer transition)
@@ -364,7 +389,14 @@ const state = {
                 id: nextProblem.id,
                 title: nextProblem.title,
                 difficulty: nextProblem.difficulty
-            } : null
+            } : null,
+
+            // Clear instruction for the avatar - ONLY included when problem is COMPLETE
+            instruction_on_complete: phase === 'COMPLETE'
+                ? (hasNextProblem
+                    ? `SWITCH: Problem completed! After verifying understanding, say "Switching to the next challenge now." to proceed to ${nextProblem.title}.`
+                    : `END: Final problem completed! After verifying understanding, say "Ending the session now."`)
+                : null
         };
     },
 
@@ -449,22 +481,44 @@ let ui = {};
 
 function initUI() {
     ui = {
+        // Screens
+        openingScreen: document.getElementById('opening-screen'),
+        interviewScreen: document.getElementById('interview-screen'),
+        endScreen: document.getElementById('end-screen'),
+
+        // Registration form
+        registrationForm: document.getElementById('registration-form'),
+        firstNameInput: document.getElementById('first-name'),
+        lastNameInput: document.getElementById('last-name'),
+        emailInput: document.getElementById('email'),
+        firstNameError: document.getElementById('first-name-error'),
+        lastNameError: document.getElementById('last-name-error'),
+        emailError: document.getElementById('email-error'),
+        startBtn: document.getElementById('start-btn'),
+
+        // Interview screen
         avatarContainer: document.getElementById('avatar-container'),
         loadingState: document.getElementById('loading-state'),
         statusDot: document.getElementById('status-dot'),
         statusText: document.getElementById('status-text'),
+        userBadge: document.getElementById('user-badge'),
         editorContainer: document.getElementById('editor-container'),
         languageSelect: document.getElementById('language-select'),
         runBtn: document.getElementById('run-btn'),
         resetBtn: document.getElementById('reset-btn'),
         nextProblemBtn: document.getElementById('next-problem-btn'),
-        endSessionBtn: document.getElementById('end-session-btn'),
         outputContent: document.getElementById('output-content'),
         testResults: document.getElementById('test-results'),
         debugDpp: document.getElementById('debug-dpp'),
         problemTitle: document.getElementById('problem-title'),
         problemDifficulty: document.getElementById('problem-difficulty'),
-        problemDescription: document.getElementById('problem-description')
+        problemDescription: document.getElementById('problem-description'),
+
+        // End screen
+        endUserName: document.getElementById('end-user-name'),
+        reportContent: document.getElementById('report-content'),
+        downloadReportBtn: document.getElementById('download-report-btn'),
+        restartBtn: document.getElementById('restart-btn')
     };
 }
 
@@ -523,6 +577,11 @@ function initSDK() {
     state.sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
         const text = data?.agentContent || data;
         console.log(`${CONFIG.AVATAR_NAME}:`, text);
+
+        // Check if avatar is suggesting to move to next problem
+        if (typeof text === 'string') {
+            checkForProblemSwitchTrigger(text);
+        }
     });
 
     state.sdk.on(KalturaAvatarSDK.Events.USER_TRANSCRIPTION, (data) => {
@@ -531,9 +590,8 @@ function initSDK() {
     });
 
     state.sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, () => {
-        updateStatus('ended');
-        stopCodeTracking();
-        analyzeSession();
+        console.log('SDK CONVERSATION_ENDED event received');
+        handleSessionEnd();
     });
 
     state.sdk.on('error', ({ message }) => {
@@ -696,10 +754,10 @@ function simulateExecution(code, language) {
 
     // Check for empty/placeholder code
     if (language === 'python' && code.includes('pass') && !code.includes('return')) {
-        return makeResult(0, testCases.length, 'Output: None\n\nYour function returned None. Did you forget to return a value?');
+        return makeResult(0, testCases.length, 'Output: None');
     }
     if (language === 'javascript' && !code.includes('return')) {
-        return makeResult(0, testCases.length, 'Output: undefined\n\nYour function returned undefined. Did you forget to return a value?');
+        return makeResult(0, testCases.length, 'Output: undefined');
     }
 
     // Problem-specific pattern matching
@@ -735,19 +793,15 @@ function simulateTwoSum(code, language, testCases) {
     const hasNestedLoops = code.match(/for.*for/s);
     const hasLoop = code.includes('for') || code.includes('while');
 
-    if (hasHashMap) {
+    if (hasHashMap || hasNestedLoops) {
         return makeResult(testCases.length, testCases.length,
-            'Output: [0, 1]\n\nAll test cases passed!\nYour solution uses a hash map approach - O(n) time complexity!');
-    }
-    if (hasNestedLoops) {
-        return makeResult(testCases.length, testCases.length,
-            'Output: [0, 1]\n\nAll test cases passed!\nNote: Your solution uses nested loops (O(n²)). Can you optimize it?');
+            'Output: [0, 1]\n\nAll test cases passed!');
     }
     if (hasLoop) {
         return makeResult(1, testCases.length,
-            'Output: [0, 1]\n\nPartial success - 1 test case passed.\nConsider what happens with duplicate values.');
+            'Output: [0, 1]\n\nPartial success - 1 test case passed.');
     }
-    return makeResult(0, testCases.length, 'No test cases passed yet. Keep working on your solution!');
+    return makeResult(0, testCases.length, 'No output produced.');
 }
 
 function simulatePalindrome(code, language, testCases) {
@@ -761,17 +815,17 @@ function simulatePalindrome(code, language, testCases) {
 
     if ((hasStringClean && hasReverse) || (hasStringClean && hasTwoPointer)) {
         return makeResult(testCases.length, testCases.length,
-            'Output: True\n\nAll test cases passed!\n"amanaplanacanalpanama" is indeed a palindrome!');
+            'Output: True\n\nAll test cases passed!');
     }
     if (hasStringClean || hasReverse) {
         return makeResult(2, testCases.length,
-            'Output: True\n\nPartial success - 2 test cases passed.\nMake sure you handle non-alphanumeric characters and case.');
+            'Output: True\n\nPartial success - 2 test cases passed.');
     }
     if (code.includes('==') || code.includes('return')) {
         return makeResult(1, testCases.length,
-            'Output: False\n\nPartial success - 1 test case passed.\nRemember to clean the string first (remove non-alphanumeric, lowercase).');
+            'Output: False\n\nPartial success - 1 test case passed.');
     }
-    return makeResult(0, testCases.length, 'No test cases passed yet. Keep working on your solution!');
+    return makeResult(0, testCases.length, 'No output produced.');
 }
 
 function simulateReverseList(code, language, testCases) {
@@ -782,17 +836,17 @@ function simulateReverseList(code, language, testCases) {
 
     if ((hasThreePointers && hasNextSave) || hasRecursion) {
         return makeResult(testCases.length, testCases.length,
-            'Output: [5, 4, 3, 2, 1]\n\nAll test cases passed!\nGreat job reversing the linked list!');
+            'Output: [5, 4, 3, 2, 1]\n\nAll test cases passed!');
     }
     if (hasThreePointers || hasNextSave) {
         return makeResult(1, testCases.length,
-            'Output: [5, 4, 3, 2, 1]\n\nPartial success - 1 test case passed.\nCheck your pointer manipulation logic.');
+            'Output: [5, 4, 3, 2, 1]\n\nPartial success - 1 test case passed.');
     }
     if (code.includes('while') || code.includes('for')) {
         return makeResult(1, testCases.length,
-            'Output: None\n\nPartial success - logic started.\nRemember to save the next node before changing pointers.');
+            'Output: None\n\nPartial success - 1 test case passed.');
     }
-    return makeResult(0, testCases.length, 'No test cases passed yet. Think about how to reverse the pointers.');
+    return makeResult(0, testCases.length, 'No output produced.');
 }
 
 function simulateFizzBuzz(code, language, testCases) {
@@ -805,84 +859,167 @@ function simulateFizzBuzz(code, language, testCases) {
     if (hasModulo && hasFizzBuzz && hasThreeCheck && hasFiveCheck) {
         if (hasFifteenCheck || code.includes('elif') || code.includes('else if')) {
             return makeResult(testCases.length, testCases.length,
-                'Output: ["1","2","Fizz","4","Buzz",...,"FizzBuzz"]\n\nAll test cases passed!\nGreat implementation of FizzBuzz!');
+                'Output: ["1","2","Fizz","4","Buzz",...,"FizzBuzz"]\n\nAll test cases passed!');
         }
         return makeResult(2, testCases.length,
-            'Output: ["1","2","Fizz","4","Buzz",...]\n\nPartial success - 2 test cases passed.\nCheck the order of your conditions - test for 15 (or 3 AND 5) first!');
+            'Output: ["1","2","Fizz","4","Buzz",...]\n\nPartial success - 2 test cases passed.');
     }
     if (hasModulo && (hasThreeCheck || hasFiveCheck)) {
         return makeResult(1, testCases.length,
-            'Output: ["1","2","Fizz",...]\n\nPartial success - 1 test case passed.\nMake sure you handle Fizz, Buzz, AND FizzBuzz cases.');
+            'Output: ["1","2","Fizz",...]\n\nPartial success - 1 test case passed.');
     }
-    return makeResult(0, testCases.length, 'No test cases passed yet. Use modulo (%) to check divisibility.');
+    return makeResult(0, testCases.length, 'No output produced.');
 }
 
 // =============================================================================
 // SESSION ANALYSIS
 // =============================================================================
 
-async function endSession() {
-    if (!state.sdk) return;
+/**
+ * Handle session end - called by SDK event or trigger phrase detection.
+ * Prevents duplicate processing if already ending.
+ */
+let isEndingSession = false;
 
-    stopCodeTracking();
-    updateStatus('analyzing...');
-    showAnalyzingState();
-
-    try {
-        await state.sdk.stop();
-    } catch (e) {
-        console.log('SDK stop:', e.message);
+async function handleSessionEnd() {
+    // Prevent duplicate calls
+    if (isEndingSession || state.currentScreen === 'end') {
+        console.log('Session end already in progress, ignoring');
+        return;
     }
+    isEndingSession = true;
 
-    await analyzeSession();
-}
+    console.log('Handling session end...');
 
-function showAnalyzingState() {
-    ui.avatarContainer.innerHTML = `
-        <div class="analyzing-state">
-            <div class="spinner"></div>
-            <p>Analyzing session...</p>
-        </div>
-    `;
-}
-
-async function analyzeSession() {
     if (!state.sdk) {
-        console.log('No session to analyze');
+        isEndingSession = false;
         return;
     }
 
+    stopCodeTracking();
+    updateStatus('ending...');
+
+    // IMPORTANT: Get transcript BEFORE stopping SDK (stop may clear it)
     const transcript = state.sdk.getTranscript();
+    const dpp = state.buildDPP();
+
+    console.log('Captured transcript with', transcript?.length || 0, 'entries');
+
+    // Switch to end screen first (so user sees immediate feedback)
+    switchScreen('end');
+
+    // Update end screen header with user name
+    if (ui.endUserName) {
+        ui.endUserName.textContent = `Thank you, ${state.user.firstName}!`;
+    }
+
+    // Show analyzing state in report area
+    if (ui.reportContent) {
+        ui.reportContent.innerHTML = `
+            <div class="analyzing-state">
+                <div class="spinner"></div>
+                <p>Analyzing your session...</p>
+            </div>
+        `;
+    }
+
+    // Hide download button until report is ready
+    if (ui.downloadReportBtn) {
+        ui.downloadReportBtn.style.display = 'none';
+    }
+
+    // Now stop the SDK (this stops the avatar audio)
+    try {
+        await state.sdk.stop();
+        console.log('SDK stopped successfully');
+    } catch (e) {
+        console.log('SDK stop error:', e.message);
+    }
+
+    // Analyze with the transcript we captured earlier
+    await analyzeSessionWithData(transcript, dpp);
+
+    isEndingSession = false;
+}
+
+// Legacy function name for backward compatibility
+async function endSession() {
+    await handleSessionEnd();
+}
+
+async function analyzeSessionWithData(transcript, dpp) {
     if (!transcript?.length) {
         console.log('Empty transcript, skipping analysis');
         showSessionSummary(null);
         return;
     }
 
-    try {
-        const dpp = state.buildDPP();
+    console.log('Analyzing session with', transcript.length, 'transcript entries');
 
+    try {
         // Format transcript for API
         const formattedTranscript = transcript.map(entry => ({
             role: entry.role === 'Avatar' ? 'assistant' : 'user',
             content: entry.text
         }));
 
-        // Add coding-specific context
+        // Build list of all problems attempted during session
+        const problemsAttemptedList = state.completedProblems.map(id => ({
+            id: id,
+            title: PROBLEMS[id]?.title || id,
+            difficulty: PROBLEMS[id]?.difficulty || 'unknown'
+        }));
+
+        // Include current problem if not already in completed list
+        if (!state.completedProblems.includes(state.currentProblem.id)) {
+            problemsAttemptedList.push({
+                id: state.currentProblem.id,
+                title: state.currentProblem.title,
+                difficulty: state.currentProblem.difficulty
+            });
+        }
+
+        // Add coding-specific context with FULL session history
         const analysisContext = {
             ...dpp,
             analysis_type: 'coding_interview',
+            // User info for the report
+            candidate: {
+                first_name: state.user.firstName,
+                last_name: state.user.lastName,
+                full_name: `${state.user.firstName} ${state.user.lastName}`.trim(),
+                email: state.user.email
+            },
             final_code: state.editor?.getValue() || '',
-            summary_prompt: 'Analyze this coding interview session. Evaluate problem-solving ability, code quality, communication, and efficiency awareness. Provide a fit score, strengths, areas for improvement, and hiring recommendation.'
+            // Explicitly list all problems for the summary to analyze
+            all_problems_in_session: PROBLEM_ORDER.map(id => ({
+                id: id,
+                title: PROBLEMS[id].title,
+                difficulty: PROBLEMS[id].difficulty
+            })),
+            problems_attempted_list: problemsAttemptedList,
+            problems_completed_ids: state.completedProblems,
+            total_problems_attempted: problemsAttemptedList.length,
+            total_problems_completed: state.completedProblems.length,
+            summary_prompt: `Analyze this coding interview session THOROUGHLY. The candidate (${state.user.firstName} ${state.user.lastName}) attempted ${problemsAttemptedList.length} problem(s): ${problemsAttemptedList.map(p => p.title).join(', ')}. For EACH problem attempted, provide detailed evaluation of creativity, logic, code quality, explainability, complexity understanding, and scale awareness. Review the entire transcript to extract specific evidence for each assessment. Provide comprehensive feedback, not minimal summaries.`
         };
+
+        // Build request body - include custom summary_prompt if loaded
+        const requestBody = {
+            transcript: formattedTranscript,
+            dpp: analysisContext
+        };
+
+        // If custom summary prompt was loaded, send it to override API default
+        if (state.summaryPrompt) {
+            requestBody.summary_prompt = state.summaryPrompt;
+            console.log('Using custom summary prompt for detailed analysis');
+        }
 
         const response = await fetch(CONFIG.ANALYSIS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                transcript: formattedTranscript,
-                dpp: analysisContext
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const result = await response.json();
@@ -902,48 +1039,324 @@ async function analyzeSession() {
 }
 
 function showSessionSummary(summary) {
-    let modal = document.getElementById('summary-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'summary-modal';
-        modal.className = 'summary-modal';
-        document.body.appendChild(modal);
+    // Show download button
+    if (ui.downloadReportBtn) {
+        ui.downloadReportBtn.style.display = summary ? 'inline-flex' : 'none';
     }
 
     if (!summary) {
-        modal.innerHTML = `
-            <div class="summary-modal-content">
-                <div class="summary-header">
-                    <h3>Session Complete</h3>
-                    <button class="summary-close-btn" onclick="closeSummaryModal()">&times;</button>
-                </div>
-                <div class="summary-body">
+        if (ui.reportContent) {
+            ui.reportContent.innerHTML = `
+                <div class="report-empty">
                     <p>Session ended. Analysis not available.</p>
                 </div>
-                <div class="summary-footer">
-                    <button class="btn btn-primary" onclick="closeSummaryModal()">Close</button>
-                </div>
-            </div>
-        `;
-        modal.style.display = 'flex';
+            `;
+        }
         return;
     }
+
+    // Add user info to summary for download
+    summary.candidate = {
+        first_name: state.user.firstName,
+        last_name: state.user.lastName,
+        full_name: `${state.user.firstName} ${state.user.lastName}`.trim(),
+        email: state.user.email
+    };
 
     const fitScore = summary.fit?.score_0_100;
     const fitClass = fitScore >= 70 ? 'good' : fitScore >= 50 ? 'ok' : 'poor';
     const rec = summary.fit?.rec || 'N/A';
 
-    modal.innerHTML = `
-        <div class="summary-modal-content">
-            <div class="summary-header">
-                <h3>Coding Session Summary</h3>
-                <button class="summary-close-btn" onclick="closeSummaryModal()">&times;</button>
-            </div>
-            <div class="summary-body">
-                <div class="summary-section">
-                    <h4>Overview</h4>
-                    <p>${escapeHtml(summary.overview || 'No overview available')}</p>
+    if (!ui.reportContent) return;
+
+    // Get initials for avatar
+    const initials = `${state.user.firstName.charAt(0)}${state.user.lastName.charAt(0)}`.toUpperCase();
+
+    ui.reportContent.innerHTML = `
+        <div class="report-sections">
+            <!-- Candidate Header -->
+            <div class="candidate-header">
+                <div class="candidate-avatar">${initials}</div>
+                <div class="candidate-info">
+                    <h3>${escapeHtml(state.user.firstName)} ${escapeHtml(state.user.lastName)}</h3>
+                    <p>${escapeHtml(state.user.email)}</p>
                 </div>
+            </div>
+
+            <div class="summary-section">
+                <h4>Overview</h4>
+                <p>${escapeHtml(summary.overview || 'No overview available')}</p>
+            </div>
+
+                ${summary.session_stats ? `
+                <div class="summary-section">
+                    <h4>Session Statistics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item"><span class="stat-label">Duration:</span> <span class="stat-value">${summary.session_stats.elapsed_minutes ?? '?'}/${summary.session_stats.target_minutes ?? '?'} min</span></div>
+                        <div class="stat-item"><span class="stat-label">Code Runs:</span> <span class="stat-value">${summary.session_stats.times_code_run ?? '?'}</span></div>
+                        <div class="stat-item"><span class="stat-label">Hints Given:</span> <span class="stat-value">${summary.session_stats.hints_given ?? '?'}</span></div>
+                        <div class="stat-item"><span class="stat-label">Tests Passed:</span> <span class="stat-value">${summary.session_stats.tests_passed ?? '?'}/${summary.session_stats.tests_total ?? '?'}</span></div>
+                        <div class="stat-item"><span class="stat-label">Problems Completed:</span> <span class="stat-value">${summary.session_stats.problems_completed ?? '?'}/${summary.session_stats.problems_total ?? '?'}</span></div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.key_answers?.length ? `
+                <div class="summary-section">
+                    <h4>Key Questions & Answers (${summary.key_answers.length})</h4>
+                    <div class="key-answers">
+                        ${summary.key_answers.map((qa, idx) => `
+                            <div class="qa-item ${qa.strength || ''}">
+                                <div class="qa-question"><strong>Q${idx + 1}:</strong> ${escapeHtml(qa.q || '')}</div>
+                                <div class="qa-answer"><strong>A:</strong> ${escapeHtml(qa.a || '')}</div>
+                                <div class="qa-meta">
+                                    <span class="qa-status ${qa.status || ''}">${escapeHtml((qa.status || '').replace(/_/g, ' '))}</span>
+                                    <span class="qa-strength ${qa.strength || ''}">${escapeHtml(qa.strength || '')}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.believability ? `
+                <div class="summary-section">
+                    <h4>Believability Assessment</h4>
+                    <div class="believability-score">
+                        <span class="score-value">${summary.believability.score_0_100 ?? '?'}</span>
+                        <span class="score-label">/ 100</span>
+                    </div>
+                    <div class="believability-meta">
+                        <span class="badge">CV Consistency: ${escapeHtml((summary.believability.cv_consistency || '').replace(/_/g, ' '))}</span>
+                    </div>
+                    ${summary.believability.notes ? `<p class="believability-notes">${escapeHtml(summary.believability.notes)}</p>` : ''}
+                    ${summary.believability.mismatches?.length ? `
+                    <div class="mismatches">
+                        <strong>Mismatches:</strong>
+                        <ul>${summary.believability.mismatches.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.dpp_digest || summary.turns ? `
+                <div class="summary-section">
+                    <h4>Session Info</h4>
+                    <div class="session-focus">
+                        ${summary.dpp_digest?.mins ? `<div class="focus-item"><strong>Duration:</strong> ${summary.dpp_digest.mins} min</div>` : ''}
+                        ${summary.turns ? `<div class="focus-item"><strong>Conversation Turns:</strong> ${summary.turns}</div>` : ''}
+                        ${summary.dpp_digest?.focus?.length ? `<div class="focus-item"><strong>Topics:</strong> ${summary.dpp_digest.focus.join(', ')}</div>` : ''}
+                        ${summary.dpp_digest?.must?.length ? `<div class="focus-item"><strong>Requirements:</strong> ${summary.dpp_digest.must.join(', ')}</div>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.problems_attempted?.length ? `
+                <div class="summary-section">
+                    <h4>Problems Attempted (${summary.problems_attempted.length})</h4>
+                    <div class="problems-attempted">
+                        ${summary.problems_attempted.map((p, idx) => `
+                            <div class="problem-card ${p.outcome || ''}">
+                                <div class="problem-card-header">
+                                    <span class="problem-number">#${idx + 1}</span>
+                                    <span class="problem-name">${escapeHtml(p.problem_title || p.title || 'Unknown')}</span>
+                                    <span class="difficulty-tag ${p.difficulty || ''}">${escapeHtml(p.difficulty || '?')}</span>
+                                    <span class="outcome-tag ${p.outcome || ''}">${escapeHtml(p.outcome || '?')}</span>
+                                </div>
+                                <div class="problem-card-body">
+                                    <div class="problem-stats">
+                                        <span>Tests: ${p.tests_passed ?? '?'}/${p.tests_total ?? '?'}</span>
+                                        <span>Time: ${p.time_spent_minutes ?? '?'}min</span>
+                                        <span>Hints: ${p.hints_used ?? 0}</span>
+                                    </div>
+                                    <div class="problem-complexity">
+                                        <span><strong>Time:</strong> ${escapeHtml(p.time_complexity || '?')}</span>
+                                        <span><strong>Space:</strong> ${escapeHtml(p.space_complexity || '?')}</span>
+                                    </div>
+                                    ${p.approach_used ? `<div class="problem-approach"><strong>Approach:</strong> ${escapeHtml(p.approach_used)}</div>` : ''}
+
+                                    ${p.evaluation ? `
+                                    <div class="problem-eval-section">
+                                        <div class="problem-eval-grid">
+                                            <div class="eval-item">
+                                                <span class="eval-label">Creativity</span>
+                                                <span class="eval-score">${p.evaluation.creativity?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                            <div class="eval-item">
+                                                <span class="eval-label">Logic</span>
+                                                <span class="eval-score">${p.evaluation.logic_soundness?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                            <div class="eval-item">
+                                                <span class="eval-label">Code Quality</span>
+                                                <span class="eval-score">${p.evaluation.code_quality?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                            <div class="eval-item">
+                                                <span class="eval-label">Explainability</span>
+                                                <span class="eval-score">${p.evaluation.explainability?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                            <div class="eval-item">
+                                                <span class="eval-label">Complexity</span>
+                                                <span class="eval-score">${p.evaluation.complexity_understanding?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                            <div class="eval-item">
+                                                <span class="eval-label">Scale</span>
+                                                <span class="eval-score">${p.evaluation.scale_awareness?.score_1_5 ?? '?'}/5</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="problem-eval-checks">
+                                            <span class="${p.evaluation.explainability?.walked_through_code ? 'check-pass' : 'check-fail'}">Walkthrough: ${p.evaluation.explainability?.walked_through_code ? 'Yes' : 'No'}</span>
+                                            <span class="${p.evaluation.complexity_understanding?.knew_time_complexity ? 'check-pass' : 'check-fail'}">Time Complexity: ${p.evaluation.complexity_understanding?.knew_time_complexity ? 'Correct' : 'No'}</span>
+                                            <span class="${p.evaluation.complexity_understanding?.knew_space_complexity ? 'check-pass' : 'check-fail'}">Space Complexity: ${p.evaluation.complexity_understanding?.knew_space_complexity ? 'Correct' : 'No'}</span>
+                                            <span class="${p.evaluation.scale_awareness?.discussed_large_inputs ? 'check-pass' : 'check-fail'}">Scale Discussion: ${p.evaluation.scale_awareness?.discussed_large_inputs ? 'Yes' : 'No'}</span>
+                                        </div>
+
+                                        <div class="problem-eval-notes">
+                                            ${p.evaluation.creativity?.notes ? `<div class="eval-note"><strong>Creativity:</strong> ${escapeHtml(p.evaluation.creativity.notes)}</div>` : ''}
+                                            ${p.evaluation.logic_soundness?.notes ? `<div class="eval-note"><strong>Logic:</strong> ${escapeHtml(p.evaluation.logic_soundness.notes)}</div>` : ''}
+                                            ${p.evaluation.code_quality?.notes ? `<div class="eval-note"><strong>Code Quality:</strong> ${escapeHtml(p.evaluation.code_quality.notes)}</div>` : ''}
+                                            ${p.evaluation.explainability?.notes ? `<div class="eval-note"><strong>Explainability:</strong> ${escapeHtml(p.evaluation.explainability.notes)}</div>` : ''}
+                                            ${p.evaluation.complexity_understanding?.notes ? `<div class="eval-note"><strong>Complexity:</strong> ${escapeHtml(p.evaluation.complexity_understanding.notes)}</div>` : ''}
+                                            ${p.evaluation.scale_awareness?.notes ? `<div class="eval-note"><strong>Scale:</strong> ${escapeHtml(p.evaluation.scale_awareness.notes)}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    ` : ''}
+
+                                    ${p.key_strengths?.length ? `
+                                    <div class="problem-strengths">
+                                        <strong>Strengths:</strong>
+                                        <ul>${p.key_strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>
+                                    </div>
+                                    ` : ''}
+                                    ${p.areas_to_improve?.length ? `
+                                    <div class="problem-improvements">
+                                        <strong>Areas to Improve:</strong>
+                                        <ul>${p.areas_to_improve.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>
+                                    </div>
+                                    ` : ''}
+                                    ${p.key_feedback ? `<div class="problem-feedback"><strong>Summary:</strong> ${escapeHtml(p.key_feedback)}</div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.solution_analysis ? `
+                <div class="summary-section">
+                    <h4>Solution Analysis</h4>
+                    <div class="solution-overview">
+                        <span class="solution-badge ${summary.solution_analysis.solved ? 'solved' : 'unsolved'}">${summary.solution_analysis.solved ? 'Solved' : 'Not Solved'}</span>
+                        ${summary.solution_analysis.optimal ? '<span class="solution-badge optimal">Optimal</span>' : ''}
+                        <span class="solution-badge approach">${escapeHtml((summary.solution_analysis.approach || '').replace(/_/g, ' '))}</span>
+                    </div>
+                    ${summary.solution_analysis.approach_description ? `<p class="approach-desc">${escapeHtml(summary.solution_analysis.approach_description)}</p>` : ''}
+                    <div class="complexity-summary">
+                        <span><strong>Time:</strong> ${escapeHtml(summary.solution_analysis.time_complexity || '?')}</span>
+                        <span><strong>Space:</strong> ${escapeHtml(summary.solution_analysis.space_complexity || '?')}</span>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${summary.solution_analysis?.walkthrough_quality ? `
+                <div class="summary-section">
+                    <h4>Code Explanation & Comprehension</h4>
+                    <div class="comprehension-grid">
+                        <div class="comprehension-item">
+                            <span class="label">Walkthrough Provided:</span>
+                            <span class="${summary.solution_analysis.walkthrough_quality.provided_walkthrough ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.walkthrough_quality.provided_walkthrough ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Clarity:</span>
+                            <span>${escapeHtml((summary.solution_analysis.walkthrough_quality.clarity || '').replace(/_/g, ' '))}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Covered Key Logic:</span>
+                            <span class="${summary.solution_analysis.walkthrough_quality.covered_key_logic ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.walkthrough_quality.covered_key_logic ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Discussed Edge Cases:</span>
+                            <span class="${summary.solution_analysis.walkthrough_quality.mentioned_edge_cases ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.walkthrough_quality.mentioned_edge_cases ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                    ${summary.solution_analysis.walkthrough_quality.notes ? `<p class="comprehension-notes">${escapeHtml(summary.solution_analysis.walkthrough_quality.notes)}</p>` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.solution_analysis?.complexity_understanding ? `
+                <div class="summary-section">
+                    <h4>Complexity & Scale Understanding</h4>
+                    <div class="comprehension-grid">
+                        <div class="comprehension-item">
+                            <span class="label">Time Complexity:</span>
+                            <span class="${summary.solution_analysis.complexity_understanding.identified_time_complexity ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.complexity_understanding.identified_time_complexity ? 'Correct' : 'Incorrect/Missing'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Space Complexity:</span>
+                            <span class="${summary.solution_analysis.complexity_understanding.identified_space_complexity ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.complexity_understanding.identified_space_complexity ? 'Correct' : 'Incorrect/Missing'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Explained Reasoning:</span>
+                            <span class="${summary.solution_analysis.complexity_understanding.explained_reasoning ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.complexity_understanding.explained_reasoning ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Understood Tradeoffs:</span>
+                            <span class="${summary.solution_analysis.complexity_understanding.understood_tradeoffs ? 'check-pass' : 'check-fail'}">${summary.solution_analysis.complexity_understanding.understood_tradeoffs ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Scale Awareness:</span>
+                            <span>${escapeHtml((summary.solution_analysis.complexity_understanding.scale_awareness || '').replace(/_/g, ' '))}</span>
+                        </div>
+                    </div>
+                    ${summary.solution_analysis.complexity_understanding.notes ? `<p class="comprehension-notes">${escapeHtml(summary.solution_analysis.complexity_understanding.notes)}</p>` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.solution_analysis?.code_quality ? `
+                <div class="summary-section">
+                    <h4>Code Quality Assessment</h4>
+                    <div class="comprehension-grid">
+                        <div class="comprehension-item">
+                            <span class="label">Overall:</span>
+                            <span class="quality-${summary.solution_analysis.code_quality.overall || ''}">${escapeHtml((summary.solution_analysis.code_quality.overall || '').replace(/_/g, ' '))}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Organization:</span>
+                            <span>${escapeHtml((summary.solution_analysis.code_quality.organization || '').replace(/_/g, ' '))}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Naming:</span>
+                            <span>${escapeHtml((summary.solution_analysis.code_quality.naming || '').replace(/_/g, ' '))}</span>
+                        </div>
+                        <div class="comprehension-item">
+                            <span class="label">Readability:</span>
+                            <span>${escapeHtml((summary.solution_analysis.code_quality.readability || '').replace(/_/g, ' '))}</span>
+                        </div>
+                    </div>
+                    ${summary.solution_analysis.code_observations?.length ? `
+                    <div class="code-observations">
+                        <strong>Code Observations:</strong>
+                        <ul>${summary.solution_analysis.code_observations.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.debugging_history?.length ? `
+                <div class="summary-section">
+                    <h4>Debugging History</h4>
+                    <div class="debug-history">
+                        ${summary.debugging_history.map(d => `
+                            <div class="debug-entry ${d.resolved ? 'resolved' : 'unresolved'}">
+                                <span class="debug-type">${escapeHtml(d.error_type || 'Error')}</span>
+                                <span class="debug-desc">${escapeHtml(d.description || '')}</span>
+                                <span class="${d.resolved ? 'check-pass' : 'check-fail'}">${d.resolved ? 'Resolved' : 'Unresolved'}</span>
+                                ${d.hint_needed ? '<span class="hint-badge">Hint Needed</span>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
 
                 ${fitScore != null ? `
                 <div class="summary-section">
@@ -953,16 +1366,25 @@ function showSessionSummary(summary) {
                         <span class="score-label">/ 100</span>
                     </div>
                     <div class="recommendation">Recommendation: <strong>${rec.replace(/_/g, ' ')}</strong></div>
-                    ${summary.skill_assessment ? `
-                    <div class="skill-dims">
+                    ${summary.fit?.conf ? `<div class="confidence-badge">Confidence: ${escapeHtml(summary.fit.conf)}</div>` : ''}
+                    ${summary.fit?.rationale ? `<p class="fit-rationale">${escapeHtml(summary.fit.rationale)}</p>` : ''}
+                </div>
+                ` : ''}
+
+                ${summary.skill_assessment ? `
+                <div class="summary-section">
+                    <h4>Skill Assessment</h4>
+                    <div class="skill-assessment-detail">
                         ${Object.entries(summary.skill_assessment).map(([key, val]) => `
-                            <div class="dim">
-                                <span class="dim-name">${escapeHtml(key.replace(/_/g, ' '))}</span>
-                                <span class="dim-score">${val.score_1_5}/5</span>
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <span class="skill-name">${escapeHtml(key.replace(/_/g, ' '))}</span>
+                                    <span class="skill-score">${val.score_1_5}/5</span>
+                                </div>
+                                ${val.evidence ? `<p class="skill-evidence">${escapeHtml(val.evidence)}</p>` : ''}
                             </div>
                         `).join('')}
                     </div>
-                    ` : ''}
                 </div>
                 ` : ''}
 
@@ -1037,9 +1459,15 @@ function showSessionSummary(summary) {
                 <div class="summary-section">
                     <h4>Gaps & Follow-ups</h4>
                     <p class="section-note">Issues in attempted problem(s)</p>
-                    <ul class="gaps-list">
-                        ${summary.gaps.map(g => `<li>${escapeHtml(typeof g === 'string' ? g : g.missing || '')}</li>`).join('')}
-                    </ul>
+                    <div class="gaps-detail">
+                        ${summary.gaps.map(g => `
+                            <div class="gap-item">
+                                <div class="gap-missing"><strong>Gap:</strong> ${escapeHtml(typeof g === 'string' ? g : g.missing || '')}</div>
+                                ${g.why_matters ? `<div class="gap-why"><strong>Why it matters:</strong> ${escapeHtml(g.why_matters)}</div>` : ''}
+                                ${g.next_q ? `<div class="gap-followup"><strong>Follow-up:</strong> ${escapeHtml(g.next_q)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
                 ` : ''}
 
@@ -1052,6 +1480,7 @@ function showSessionSummary(summary) {
                             <li>
                                 <span class="problem-name">${escapeHtml(p.problem_title || '')}</span>
                                 <span class="difficulty-tag ${p.difficulty || ''}">${escapeHtml(p.difficulty || '')}</span>
+                                ${p.reason_not_attempted ? `<span class="reason-tag">${escapeHtml(p.reason_not_attempted.replace(/_/g, ' '))}</span>` : ''}
                             </li>
                         `).join('')}
                     </ul>
@@ -1067,6 +1496,17 @@ function showSessionSummary(summary) {
                 </div>
                 ` : ''}
 
+                ${summary.risk && (summary.risk.escalated || (summary.risk.flags?.length && !summary.risk.flags.includes('none'))) ? `
+                <div class="summary-section">
+                    <h4>Risk Flags</h4>
+                    <div class="risk-section ${summary.risk.escalated ? 'escalated' : ''}">
+                        ${summary.risk.flags?.filter(f => f !== 'none').map(f => `<span class="risk-flag">${escapeHtml(f.replace(/_/g, ' '))}</span>`).join('') || ''}
+                        ${summary.risk.escalated ? '<span class="risk-escalated">Escalation Required</span>' : ''}
+                        ${summary.risk.reason ? `<p class="risk-reason">${escapeHtml(summary.risk.reason)}</p>` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
                 <div class="summary-section">
                     <h4>Session Quality</h4>
                     <div class="cq-badges">
@@ -1076,30 +1516,39 @@ function showSessionSummary(summary) {
                         ${summary.cq?.think_aloud !== undefined ? `<span class="badge">Think Aloud: ${summary.cq.think_aloud ? 'Yes' : 'No'}</span>` : ''}
                     </div>
                 </div>
-            </div>
-            <div class="summary-footer">
-                <button class="btn btn-secondary" onclick="downloadSessionSummary()">Download JSON</button>
-                <button class="btn btn-primary" onclick="closeSummaryModal()">Close</button>
-            </div>
+
+                <details class="summary-debug">
+                    <summary>Debug: Raw JSON Response</summary>
+                    <pre>${escapeHtml(JSON.stringify(summary, null, 2))}</pre>
+                </details>
         </div>
     `;
-
-    modal.style.display = 'flex';
-}
-
-function closeSummaryModal() {
-    const modal = document.getElementById('summary-modal');
-    if (modal) modal.style.display = 'none';
 }
 
 function downloadSessionSummary() {
     if (!state.lastSessionSummary) return;
 
-    const blob = new Blob([JSON.stringify(state.lastSessionSummary, null, 2)], { type: 'application/json' });
+    // Include user info in the download
+    const reportData = {
+        ...state.lastSessionSummary,
+        candidate: {
+            first_name: state.user.firstName,
+            last_name: state.user.lastName,
+            full_name: `${state.user.firstName} ${state.user.lastName}`.trim(),
+            email: state.user.email
+        },
+        generated_at: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `coding-session-${state.currentProblem.id}-${Date.now()}.json`;
+
+    // Create filename with user name
+    const safeName = `${state.user.firstName}-${state.user.lastName}`.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    a.download = `coding-interview-${safeName}-${Date.now()}.json`;
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1247,13 +1696,47 @@ Explanation: ${escapeHtml(example.explanation)}</pre>
 
 /**
  * Show the "Next Problem" button when problem is completed.
+ * NOTE: Button is hidden by default - avatar controls problem switching automatically.
+ * Button only appears as a manual fallback after avatar suggests moving on.
  */
 function showNextProblemButton() {
+    // Avatar-controlled switching is primary - button is a manual fallback only
+    // The button will be shown if needed, but avatar speech triggers automatic switch
     if (!ui.nextProblemBtn) return;
 
     const hasNext = state.currentProblemIndex + 1 < PROBLEM_ORDER.length;
     if (hasNext && state.problemCompleted) {
+        // Show as fallback option (avatar speech is primary trigger)
         ui.nextProblemBtn.style.display = 'inline-flex';
+    }
+}
+
+/**
+ * Check if the avatar's speech contains action triggers.
+ * - "switching to the next challenge now" → switch to next problem
+ * - "ending the session now" → end session and show analysis
+ */
+function checkForProblemSwitchTrigger(text) {
+    const lowerText = text.toLowerCase();
+
+    // Trigger: switch to next problem
+    if (lowerText.includes('switching to the next challenge now')) {
+        const hasNext = state.currentProblemIndex + 1 < PROBLEM_ORDER.length;
+        if (hasNext) {
+            console.log('[Avatar] Switch trigger detected');
+            setTimeout(() => {
+                switchToNextProblem();
+            }, 1500);
+        }
+        return;
+    }
+
+    // Trigger: end session
+    if (lowerText.includes('ending the session now')) {
+        console.log('[Avatar] End session trigger detected');
+        setTimeout(() => {
+            endSession();
+        }, 2000);
     }
 }
 
@@ -1265,13 +1748,301 @@ window.switchToNextProblem = switchToNextProblem;
 // =============================================================================
 
 function attachEventListeners() {
-    ui.runBtn.addEventListener('click', runCode);
-    ui.resetBtn.addEventListener('click', resetCode);
+    // Registration form
+    ui.registrationForm?.addEventListener('submit', handleRegistrationSubmit);
+
+    // Input validation on blur
+    ui.firstNameInput?.addEventListener('blur', () => validateField('firstName'));
+    ui.lastNameInput?.addEventListener('blur', () => validateField('lastName'));
+    ui.emailInput?.addEventListener('blur', () => validateField('email'));
+
+    // Clear errors on input
+    ui.firstNameInput?.addEventListener('input', () => clearFieldError('firstName'));
+    ui.lastNameInput?.addEventListener('input', () => clearFieldError('lastName'));
+    ui.emailInput?.addEventListener('input', () => clearFieldError('email'));
+
+    // Interview controls
+    ui.runBtn?.addEventListener('click', runCode);
+    ui.resetBtn?.addEventListener('click', resetCode);
     ui.nextProblemBtn?.addEventListener('click', switchToNextProblem);
-    ui.endSessionBtn?.addEventListener('click', endSession);
-    ui.languageSelect.addEventListener('change', (e) => {
+    ui.languageSelect?.addEventListener('change', (e) => {
         onLanguageChange(e.target.value);
     });
+
+    // End screen
+    ui.downloadReportBtn?.addEventListener('click', downloadSessionSummary);
+    ui.restartBtn?.addEventListener('click', restartInterview);
+}
+
+// =============================================================================
+// SCREEN TRANSITIONS
+// =============================================================================
+
+/**
+ * Switch to a different screen (opening, interview, end).
+ */
+function switchScreen(screenName) {
+    state.currentScreen = screenName;
+
+    // Hide all screens
+    ui.openingScreen.style.display = 'none';
+    ui.interviewScreen.style.display = 'none';
+    ui.endScreen.style.display = 'none';
+
+    // Show the target screen
+    switch (screenName) {
+        case 'opening':
+            ui.openingScreen.style.display = 'flex';
+            break;
+        case 'interview':
+            ui.interviewScreen.style.display = 'flex';
+            break;
+        case 'end':
+            ui.endScreen.style.display = 'flex';
+            break;
+    }
+
+    console.log(`[Screen] Switched to: ${screenName}`);
+}
+
+// =============================================================================
+// FORM VALIDATION
+// =============================================================================
+
+/**
+ * Validate a single field.
+ */
+function validateField(fieldName) {
+    let value, errorEl, inputEl, isValid = true, errorMessage = '';
+
+    switch (fieldName) {
+        case 'firstName':
+            value = ui.firstNameInput.value.trim();
+            errorEl = ui.firstNameError;
+            inputEl = ui.firstNameInput;
+            if (!value) {
+                isValid = false;
+                errorMessage = 'First name is required';
+            } else if (value.length < 2) {
+                isValid = false;
+                errorMessage = 'First name must be at least 2 characters';
+            } else if (!/^[a-zA-Z\s\-']+$/.test(value)) {
+                isValid = false;
+                errorMessage = 'First name can only contain letters, spaces, hyphens, and apostrophes';
+            }
+            break;
+
+        case 'lastName':
+            value = ui.lastNameInput.value.trim();
+            errorEl = ui.lastNameError;
+            inputEl = ui.lastNameInput;
+            if (!value) {
+                isValid = false;
+                errorMessage = 'Last name is required';
+            } else if (value.length < 2) {
+                isValid = false;
+                errorMessage = 'Last name must be at least 2 characters';
+            } else if (!/^[a-zA-Z\s\-']+$/.test(value)) {
+                isValid = false;
+                errorMessage = 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+            }
+            break;
+
+        case 'email':
+            value = ui.emailInput.value.trim();
+            errorEl = ui.emailError;
+            inputEl = ui.emailInput;
+            if (!value) {
+                isValid = false;
+                errorMessage = 'Email is required';
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                isValid = false;
+                errorMessage = 'Please enter a valid email address';
+            }
+            break;
+    }
+
+    // Update UI
+    if (errorEl) {
+        errorEl.textContent = errorMessage;
+    }
+    if (inputEl) {
+        inputEl.classList.toggle('invalid', !isValid);
+    }
+
+    return isValid;
+}
+
+/**
+ * Clear error for a single field.
+ */
+function clearFieldError(fieldName) {
+    let errorEl, inputEl;
+
+    switch (fieldName) {
+        case 'firstName':
+            errorEl = ui.firstNameError;
+            inputEl = ui.firstNameInput;
+            break;
+        case 'lastName':
+            errorEl = ui.lastNameError;
+            inputEl = ui.lastNameInput;
+            break;
+        case 'email':
+            errorEl = ui.emailError;
+            inputEl = ui.emailInput;
+            break;
+    }
+
+    if (errorEl) {
+        errorEl.textContent = '';
+    }
+    if (inputEl) {
+        inputEl.classList.remove('invalid');
+    }
+}
+
+/**
+ * Validate all fields and return overall validity.
+ */
+function validateAllFields() {
+    const isFirstNameValid = validateField('firstName');
+    const isLastNameValid = validateField('lastName');
+    const isEmailValid = validateField('email');
+
+    return isFirstNameValid && isLastNameValid && isEmailValid;
+}
+
+/**
+ * Handle registration form submission.
+ */
+function handleRegistrationSubmit(e) {
+    e.preventDefault();
+
+    if (!validateAllFields()) {
+        return;
+    }
+
+    // Store user info
+    state.user.firstName = ui.firstNameInput.value.trim();
+    state.user.lastName = ui.lastNameInput.value.trim();
+    state.user.email = ui.emailInput.value.trim();
+
+    console.log('[Registration] User registered:', state.user);
+
+    // Start the interview
+    startInterview();
+}
+
+/**
+ * Start the interview session.
+ */
+async function startInterview() {
+    // Switch to interview screen
+    switchScreen('interview');
+
+    // Update user badge
+    if (ui.userBadge) {
+        ui.userBadge.textContent = `${state.user.firstName} ${state.user.lastName}`;
+    }
+
+    // Initialize Monaco editor if not already done
+    if (!state.editor) {
+        await initMonaco();
+    }
+
+    // Start the avatar
+    await startAvatar();
+}
+
+/**
+ * Restart the interview (from end screen).
+ */
+function restartInterview() {
+    // Reset all state
+    resetFullState();
+
+    // Switch back to opening screen
+    switchScreen('opening');
+
+    // Clear form fields
+    if (ui.firstNameInput) ui.firstNameInput.value = '';
+    if (ui.lastNameInput) ui.lastNameInput.value = '';
+    if (ui.emailInput) ui.emailInput.value = '';
+
+    // Clear any validation errors
+    clearFieldError('firstName');
+    clearFieldError('lastName');
+    clearFieldError('email');
+}
+
+/**
+ * Reset all application state for a new session.
+ */
+function resetFullState() {
+    // Stop any running timers
+    stopCodeTracking();
+
+    // Reset user
+    state.user = { firstName: '', lastName: '', email: '' };
+
+    // Reset SDK
+    state.sdk = null;
+
+    // Reset problem tracking
+    state.currentProblemIndex = 0;
+    state.currentProblem = PROBLEMS['two-sum'];
+    state.completedProblems = [];
+
+    // Reset language
+    state.language = 'python';
+
+    // Reset timing
+    state.sessionStartTime = null;
+
+    // Reset code injection
+    state.lastInjectedCode = '';
+    state.lastInjectionTime = 0;
+    state.debounceTimer = null;
+    state.intervalTimer = null;
+
+    // Reset run results
+    state.lastRunResult = null;
+    state.runCount = 0;
+
+    // Reset hints
+    state.hintsGiven = 0;
+
+    // Reset completion
+    state.problemCompleted = false;
+
+    // Reset analysis
+    state.lastSessionSummary = null;
+
+    // Reset editor content if exists
+    if (state.editor) {
+        state.editor.setValue(state.currentProblem.starterCode[state.language]);
+    }
+
+    // Reset UI elements
+    if (ui.outputContent) {
+        ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
+        ui.outputContent.className = 'output-content';
+    }
+    if (ui.testResults) {
+        ui.testResults.textContent = '';
+    }
+    if (ui.nextProblemBtn) {
+        ui.nextProblemBtn.style.display = 'none';
+    }
+
+    // Reset problem UI
+    updateProblemUI();
+
+    // Re-initialize SDK
+    initSDK();
+
+    console.log('[State] Full state reset');
 }
 
 // =============================================================================
@@ -1281,10 +2052,33 @@ function attachEventListeners() {
 async function init() {
     initUI();
     attachEventListeners();
-    initSDK();
 
-    await initMonaco();
-    await startAvatar();
+    // Load custom summary prompt for detailed analysis
+    await loadSummaryPrompt();
+
+    // Show opening screen
+    switchScreen('opening');
+
+    // Pre-initialize SDK (but don't start yet)
+    initSDK();
+}
+
+/**
+ * Load the custom summary prompt from file.
+ * This enables detailed code interview analysis with per-problem evaluations.
+ */
+async function loadSummaryPrompt() {
+    try {
+        const response = await fetch(CONFIG.SUMMARY_PROMPT_PATH);
+        if (response.ok) {
+            state.summaryPrompt = await response.text();
+            console.log('Summary prompt loaded successfully');
+        } else {
+            console.warn('Could not load summary prompt, using API default');
+        }
+    } catch (error) {
+        console.warn('Failed to load summary prompt:', error);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', init);

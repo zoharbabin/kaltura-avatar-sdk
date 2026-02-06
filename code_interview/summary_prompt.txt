@@ -1,5 +1,14 @@
 DPP = Dynamic Page Prompt.
-Output one JSON object that exactly matches the JSON Schema below. Return valid JSON only (no markdown, no commentary, no extra keys, no back ticks).
+
+CRITICAL INSTRUCTIONS:
+1. Output one JSON object that exactly matches the JSON Schema below.
+2. Return valid JSON only (no markdown, no commentary, no extra keys, no back ticks).
+3. BE THOROUGH: Review the ENTIRE transcript carefully. Extract ALL details from the conversation.
+4. PROBLEMS_ATTEMPTED is REQUIRED: You MUST include a detailed entry for EVERY problem the candidate worked on during the session. Review the transcript to identify all problems discussed.
+5. For EACH problem attempted, provide DETAILED evaluation scores and notes based on what was observed in the conversation.
+6. Do NOT provide minimal or placeholder responses. Fill every field with meaningful, specific information derived from the transcript.
+7. The summary should be comprehensive enough to give a complete picture of the candidate's performance without needing to read the original transcript.
+
 Follow the field descriptions in the schema precisely as your instructions and directions to fill the values in the JSON.
 If the schema field description references data from the Dynamic Page Prompt (DPP) be sure to copy the data exactly as stated, be highly accurate and diligent, and ensure complete and clean data.
 
@@ -8,7 +17,7 @@ The Summary JSON Schema to follow:
 {
   "type": "json_schema",
   "json_schema": {
-    "name": "code_interview_summary_v1_2",
+    "name": "code_interview_summary_v1_4",
     "schema": {
       "type": "object",
       "additionalProperties": false,
@@ -16,8 +25,8 @@ The Summary JSON Schema to follow:
       "properties": {
         "v": {
           "type": "string",
-          "enum": ["1.2"],
-          "description": "Schema version. Must be exactly \"1.2\"."
+          "enum": ["1.4"],
+          "description": "Schema version. Must be exactly \"1.4\"."
         },
 
         "mode": {
@@ -45,7 +54,7 @@ The Summary JSON Schema to follow:
         "session_stats": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.session.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.session.times_code_was_run\n- hints_given = DPP.session.hints_given\n- tests_passed/total from DPP.last_execution (or 0 if null)\n- problems_completed = DPP.session.completed_count\n- problems_total = DPP.session.total_problems",
+          "description": "Quantitative session metrics from DPP.\nFILLING RULES:\n- elapsed_minutes = DPP.session.elapsed_minutes\n- target_minutes = DPP.mtg.mins\n- times_code_run = DPP.session.times_code_was_run\n- hints_given = DPP.session.hints_given\n- tests_passed/total from DPP.last_execution (or 0 if null)\n- problems_completed = count of problems_attempted with outcome='solved'\n- problems_total = DPP.session.total_problems",
           "properties": {
             "elapsed_minutes": { "type": "integer", "minimum": 0, "description": "Actual session duration in minutes." },
             "target_minutes": { "type": "integer", "minimum": 0, "description": "Target session duration from DPP.mtg.mins." },
@@ -62,7 +71,7 @@ The Summary JSON Schema to follow:
         "solution_analysis": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Analysis of the candidate's solution approach.\nFILLING RULES:\n- solved = true only if tests_passed == tests_total and tests_total > 0\n- approach: describe the algorithm/data structures used\n- time_complexity/space_complexity: use Big-O notation or \"unknown\" if not determinable\n- optimal = true if solution matches DPP.problem.optimal_complexity\n- code_quality: brief assessment of code organization, naming, readability",
+          "description": "Analysis of the candidate's solution approach.\nFILLING RULES:\n- solved = true only if tests_passed == tests_total and tests_total > 0\n- approach: describe the algorithm/data structures used\n- time_complexity/space_complexity: use Big-O notation or \"unknown\" if not determinable\n- optimal = true if solution matches DPP.problem.optimal_complexity\n- code_quality: assess organization, naming, readability\n- walkthrough_quality: how well did they explain their code when asked?\n- complexity_understanding: did they correctly identify and explain complexity?",
           "properties": {
             "solved": { "type": "boolean", "description": "True if all tests passed." },
             "approach": {
@@ -75,9 +84,43 @@ The Summary JSON Schema to follow:
             "space_complexity": { "type": "string", "description": "Space complexity in Big-O notation (e.g., \"O(1)\", \"O(n)\", \"unknown\")." },
             "optimal": { "type": "boolean", "description": "True if solution matches optimal complexity for the problem." },
             "code_quality": {
-              "type": "string",
-              "enum": ["excellent", "good", "adequate", "poor", "incomplete"],
-              "description": "Overall code quality assessment."
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Detailed code quality assessment.",
+              "properties": {
+                "overall": { "type": "string", "enum": ["excellent", "good", "adequate", "poor", "incomplete"], "description": "Overall code quality rating." },
+                "organization": { "type": "string", "enum": ["well_structured", "adequate", "disorganized", "not_applicable"], "description": "Code structure and organization." },
+                "naming": { "type": "string", "enum": ["clear", "adequate", "unclear", "not_applicable"], "description": "Variable and function naming quality." },
+                "readability": { "type": "string", "enum": ["highly_readable", "readable", "hard_to_follow", "not_applicable"], "description": "Code readability assessment." }
+              },
+              "required": ["overall", "organization", "naming", "readability"]
+            },
+            "walkthrough_quality": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Assessment of how well candidate explained their code.",
+              "properties": {
+                "provided_walkthrough": { "type": "boolean", "description": "True if candidate walked through their solution when asked." },
+                "clarity": { "type": "string", "enum": ["excellent", "good", "adequate", "poor", "not_provided"], "description": "How clearly they explained their approach." },
+                "covered_key_logic": { "type": "boolean", "description": "True if they explained the core algorithm/logic." },
+                "mentioned_edge_cases": { "type": "boolean", "description": "True if they discussed edge cases in their explanation." },
+                "notes": { "type": "string", "description": "Brief note on their explanation quality." }
+              },
+              "required": ["provided_walkthrough", "clarity", "covered_key_logic", "mentioned_edge_cases", "notes"]
+            },
+            "complexity_understanding": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Assessment of candidate's understanding of time/space complexity.",
+              "properties": {
+                "identified_time_complexity": { "type": "boolean", "description": "True if they correctly identified time complexity." },
+                "identified_space_complexity": { "type": "boolean", "description": "True if they correctly identified space complexity." },
+                "explained_reasoning": { "type": "boolean", "description": "True if they explained WHY it has that complexity." },
+                "understood_tradeoffs": { "type": "boolean", "description": "True if they discussed tradeoffs or alternative approaches." },
+                "scale_awareness": { "type": "string", "enum": ["strong", "moderate", "weak", "not_assessed"], "description": "Understanding of how solution scales with input size." },
+                "notes": { "type": "string", "description": "Brief note on their complexity understanding." }
+              },
+              "required": ["identified_time_complexity", "identified_space_complexity", "explained_reasoning", "understood_tradeoffs", "scale_awareness", "notes"]
             },
             "code_observations": {
               "type": "array",
@@ -86,7 +129,112 @@ The Summary JSON Schema to follow:
               "description": "Up to 5 specific observations about the code (good patterns, issues, style notes)."
             }
           },
-          "required": ["solved", "approach", "approach_description", "time_complexity", "space_complexity", "optimal", "code_quality", "code_observations"]
+          "required": ["solved", "approach", "approach_description", "time_complexity", "space_complexity", "optimal", "code_quality", "walkthrough_quality", "complexity_understanding", "code_observations"]
+        },
+
+        "problems_attempted": {
+          "type": "array",
+          "description": "*** CRITICAL REQUIRED FIELD ***: Detailed per-problem evaluation for EACH problem the candidate worked on.\nFILLING RULES:\n- Review the ENTIRE transcript to identify ALL problems discussed\n- MUST include a SEPARATE entry for EVERY problem attempted (e.g., if they did Two Sum, Valid Palindrome, and Reverse Linked List, include 3 entries)\n- Each entry MUST have complete evaluation scores (1-5) with specific notes based on transcript evidence\n- Do NOT skip any problem - if they worked on it at all, include it\n- Do NOT provide generic notes - reference specific things from the conversation\n- This is the PRIMARY record of the candidate's performance across all tasks",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "problem_id": { "type": "string", "description": "Problem identifier." },
+              "problem_title": { "type": "string", "description": "Problem title." },
+              "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"], "description": "Problem difficulty." },
+              "outcome": { "type": "string", "enum": ["solved", "partial", "stuck", "skipped"], "description": "Final outcome for this problem." },
+              "tests_passed": { "type": "integer", "minimum": 0, "description": "Tests passed for this problem." },
+              "tests_total": { "type": "integer", "minimum": 0, "description": "Total tests for this problem." },
+              "approach_used": { "type": "string", "description": "Brief description of approach taken." },
+              "time_complexity": { "type": "string", "description": "Time complexity of their solution (e.g., O(n), O(n²))." },
+              "space_complexity": { "type": "string", "description": "Space complexity of their solution (e.g., O(1), O(n))." },
+              "time_spent_minutes": { "type": "integer", "minimum": 0, "description": "Approximate time spent on this problem." },
+              "hints_used": { "type": "integer", "minimum": 0, "description": "Number of hints used for this problem." },
+              "evaluation": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Detailed evaluation for this specific problem.",
+                "properties": {
+                  "creativity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=standard/memorized, 3=adequate, 5=highly creative approach" },
+                      "notes": { "type": "string", "description": "Brief note on creativity of their approach." }
+                    },
+                    "required": ["score_1_5", "notes"]
+                  },
+                  "logic_soundness": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=flawed logic, 3=mostly sound, 5=impeccable logic" },
+                      "notes": { "type": "string", "description": "Brief note on logic and correctness." }
+                    },
+                    "required": ["score_1_5", "notes"]
+                  },
+                  "code_quality": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=poor, 3=adequate, 5=excellent organization/naming/readability" },
+                      "notes": { "type": "string", "description": "Brief note on code quality." }
+                    },
+                    "required": ["score_1_5", "notes"]
+                  },
+                  "explainability": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=couldn't explain, 3=adequate explanation, 5=excellent walkthrough" },
+                      "walked_through_code": { "type": "boolean", "description": "True if they walked through their solution." },
+                      "explained_logic": { "type": "boolean", "description": "True if they explained the core logic." },
+                      "notes": { "type": "string", "description": "Brief note on their explanation quality." }
+                    },
+                    "required": ["score_1_5", "walked_through_code", "explained_logic", "notes"]
+                  },
+                  "complexity_understanding": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=no understanding, 3=partial understanding, 5=full understanding with reasoning" },
+                      "knew_time_complexity": { "type": "boolean", "description": "True if they correctly stated time complexity." },
+                      "knew_space_complexity": { "type": "boolean", "description": "True if they correctly stated space complexity." },
+                      "explained_why": { "type": "boolean", "description": "True if they explained WHY it has that complexity." },
+                      "notes": { "type": "string", "description": "Brief note on complexity understanding." }
+                    },
+                    "required": ["score_1_5", "knew_time_complexity", "knew_space_complexity", "explained_why", "notes"]
+                  },
+                  "scale_awareness": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "score_1_5": { "type": "integer", "minimum": 1, "maximum": 5, "description": "1=no awareness, 3=some awareness, 5=excellent understanding of scale/tradeoffs" },
+                      "discussed_large_inputs": { "type": "boolean", "description": "True if they discussed how solution handles large inputs." },
+                      "identified_tradeoffs": { "type": "boolean", "description": "True if they identified tradeoffs in their approach." },
+                      "notes": { "type": "string", "description": "Brief note on scale awareness." }
+                    },
+                    "required": ["score_1_5", "discussed_large_inputs", "identified_tradeoffs", "notes"]
+                  }
+                },
+                "required": ["creativity", "logic_soundness", "code_quality", "explainability", "complexity_understanding", "scale_awareness"]
+              },
+              "key_strengths": {
+                "type": "array",
+                "items": { "type": "string" },
+                "maxItems": 3,
+                "description": "Up to 3 key strengths demonstrated on this problem."
+              },
+              "areas_to_improve": {
+                "type": "array",
+                "items": { "type": "string" },
+                "maxItems": 3,
+                "description": "Up to 3 areas for improvement on this problem."
+              },
+              "key_feedback": { "type": "string", "description": "One sentence summary feedback for this problem." }
+            },
+            "required": ["problem_id", "problem_title", "difficulty", "outcome", "tests_passed", "tests_total", "approach_used", "time_complexity", "space_complexity", "time_spent_minutes", "hints_used", "evaluation", "key_strengths", "areas_to_improve", "key_feedback"]
+          }
         },
 
         "debugging_history": {
@@ -113,7 +261,7 @@ The Summary JSON Schema to follow:
 
         "overview": {
           "type": "string",
-          "description": "Concise internal narrative summary (50–150 words).\nFILLING RULES:\n- Start with: 'Completed X of Y problems in this session.'\n- Summarize: which problem(s) attempted, approach taken, outcome (solved/partial/stuck)\n- Note: time to solution, hints needed, debugging struggles\n- Include: complexity awareness, optimization discussion if it occurred\n- Mention: communication quality (did they think aloud, ask questions, explain their reasoning?)\n- If problems remain: note they are available for future sessions, NOT as a failure"
+          "description": "Detailed narrative summary (150–300 words).\nFILLING RULES:\n- Start with: 'Completed X of Y problems in this session.'\n- For EACH problem attempted, summarize: title, approach taken, outcome, key observations\n- Note for each: time to solution, hints needed, debugging struggles\n- MUST mention for each problem: Did they walk through their code? Did they correctly explain time AND space complexity? Did they discuss scale?\n- Include: specific examples of good problem-solving or areas of concern\n- Mention: communication quality (did they think aloud, ask questions, explain their reasoning?)\n- Be SPECIFIC - reference actual code patterns, approaches, or statements from the conversation\n- If problems remain: note they are available for future sessions, NOT as a failure"
         },
 
         "skill_assessment": {
@@ -361,6 +509,7 @@ The Summary JSON Schema to follow:
         "ctx",
         "session_stats",
         "solution_analysis",
+        "problems_attempted",
         "debugging_history",
         "turns",
         "overview",
