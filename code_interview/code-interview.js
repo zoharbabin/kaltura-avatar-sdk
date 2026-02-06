@@ -687,70 +687,134 @@ function runCode() {
  * DEMO MODE: Simulates code execution using pattern matching.
  *
  * This is NOT real code execution - it detects common patterns in the code
- * (like hash maps, nested loops, etc.) to simulate pass/fail results.
+ * to simulate pass/fail results based on the current problem.
  * For production, replace with actual code execution via a sandboxed backend.
  */
 function simulateExecution(code, language) {
     const testCases = state.currentProblem.testCases;
-    let passed = 0;
-    let output = '';
-    let error = null;
+    const problemId = state.currentProblem.id;
 
-    if (language === 'python') {
-        if (code.includes('pass') && !code.includes('return')) {
-            return {
-                timestamp: new Date().toISOString(),
-                error: null,
-                passed: 0,
-                failed: testCases.length,
-                total: testCases.length,
-                output: 'Output: None\n\nYour function returned None. Did you forget to return a value?'
-            };
-        }
-
-        if (code.includes('dict') || code.includes('{}') || code.includes('enumerate')) {
-            passed = testCases.length;
-            output = 'Output: [0, 1]\n\nAll test cases passed!\nYour solution appears to use a hash map approach - nice!';
-        }
-        else if (code.includes('for') && code.match(/for.*for/s)) {
-            passed = testCases.length;
-            output = 'Output: [0, 1]\n\nAll test cases passed!\nNote: Your solution uses nested loops (O(n²)). Can you think of a more efficient approach?';
-        }
-        else if (code.includes('for') || code.includes('while')) {
-            passed = 1;
-            output = 'Output: [0, 1]\n\nPartial success - 1 test case passed.\nSome edge cases are failing. Consider what happens with duplicate values.';
-        }
-        else {
-            passed = 0;
-            output = 'Output: None\n\nNo test cases passed yet. Keep working on your solution!';
-        }
-    } else if (language === 'javascript') {
-        if (code.includes('Map') || code.includes('{}') || code.includes('Object')) {
-            passed = testCases.length;
-            output = 'Output: [0, 1]\n\nAll test cases passed!\nYour solution appears to use a hash map approach - nice!';
-        }
-        else if (code.includes('for') && code.match(/for.*for/s)) {
-            passed = testCases.length;
-            output = 'Output: [0, 1]\n\nAll test cases passed!\nNote: Your solution uses nested loops (O(n²)). Can you think of a more efficient approach?';
-        }
-        else if (code.includes('for') || code.includes('while')) {
-            passed = 1;
-            output = 'Output: [0, 1]\n\nPartial success - 1 test case passed.';
-        }
-        else {
-            passed = 0;
-            output = 'No test cases passed yet.';
-        }
+    // Check for empty/placeholder code
+    if (language === 'python' && code.includes('pass') && !code.includes('return')) {
+        return makeResult(0, testCases.length, 'Output: None\n\nYour function returned None. Did you forget to return a value?');
+    }
+    if (language === 'javascript' && !code.includes('return')) {
+        return makeResult(0, testCases.length, 'Output: undefined\n\nYour function returned undefined. Did you forget to return a value?');
     }
 
+    // Problem-specific pattern matching
+    switch (problemId) {
+        case 'two-sum':
+            return simulateTwoSum(code, language, testCases);
+        case 'valid-palindrome':
+            return simulatePalindrome(code, language, testCases);
+        case 'reverse-linked-list':
+            return simulateReverseList(code, language, testCases);
+        case 'fizz-buzz':
+            return simulateFizzBuzz(code, language, testCases);
+        default:
+            return makeResult(0, testCases.length, 'Unknown problem type.');
+    }
+}
+
+function makeResult(passed, total, output, error = null) {
     return {
         timestamp: new Date().toISOString(),
         error: error,
         passed: passed,
-        failed: testCases.length - passed,
-        total: testCases.length,
+        failed: total - passed,
+        total: total,
         output: output
     };
+}
+
+function simulateTwoSum(code, language, testCases) {
+    const hasHashMap = language === 'python'
+        ? (code.includes('dict') || code.includes('{}') || code.includes('enumerate'))
+        : (code.includes('Map') || code.includes('{}') || code.includes('Object'));
+    const hasNestedLoops = code.match(/for.*for/s);
+    const hasLoop = code.includes('for') || code.includes('while');
+
+    if (hasHashMap) {
+        return makeResult(testCases.length, testCases.length,
+            'Output: [0, 1]\n\nAll test cases passed!\nYour solution uses a hash map approach - O(n) time complexity!');
+    }
+    if (hasNestedLoops) {
+        return makeResult(testCases.length, testCases.length,
+            'Output: [0, 1]\n\nAll test cases passed!\nNote: Your solution uses nested loops (O(n²)). Can you optimize it?');
+    }
+    if (hasLoop) {
+        return makeResult(1, testCases.length,
+            'Output: [0, 1]\n\nPartial success - 1 test case passed.\nConsider what happens with duplicate values.');
+    }
+    return makeResult(0, testCases.length, 'No test cases passed yet. Keep working on your solution!');
+}
+
+function simulatePalindrome(code, language, testCases) {
+    const hasStringClean = language === 'python'
+        ? (code.includes('isalnum') || code.includes('lower'))
+        : (code.includes('replace') || code.includes('toLowerCase') || code.includes('match'));
+    const hasReverse = language === 'python'
+        ? (code.includes('[::-1]') || code.includes('reversed'))
+        : (code.includes('.reverse()') || code.includes('split') && code.includes('join'));
+    const hasTwoPointer = code.includes('left') && code.includes('right') || code.includes('i]') && code.includes('j]');
+
+    if ((hasStringClean && hasReverse) || (hasStringClean && hasTwoPointer)) {
+        return makeResult(testCases.length, testCases.length,
+            'Output: True\n\nAll test cases passed!\n"amanaplanacanalpanama" is indeed a palindrome!');
+    }
+    if (hasStringClean || hasReverse) {
+        return makeResult(2, testCases.length,
+            'Output: True\n\nPartial success - 2 test cases passed.\nMake sure you handle non-alphanumeric characters and case.');
+    }
+    if (code.includes('==') || code.includes('return')) {
+        return makeResult(1, testCases.length,
+            'Output: False\n\nPartial success - 1 test case passed.\nRemember to clean the string first (remove non-alphanumeric, lowercase).');
+    }
+    return makeResult(0, testCases.length, 'No test cases passed yet. Keep working on your solution!');
+}
+
+function simulateReverseList(code, language, testCases) {
+    const hasThreePointers = (code.includes('prev') && code.includes('curr')) ||
+                            (code.includes('previous') && code.includes('current'));
+    const hasNextSave = code.includes('next') || code.includes('temp');
+    const hasRecursion = code.includes('reverse') && (code.includes('head.next') || code.includes('node.next'));
+
+    if ((hasThreePointers && hasNextSave) || hasRecursion) {
+        return makeResult(testCases.length, testCases.length,
+            'Output: [5, 4, 3, 2, 1]\n\nAll test cases passed!\nGreat job reversing the linked list!');
+    }
+    if (hasThreePointers || hasNextSave) {
+        return makeResult(1, testCases.length,
+            'Output: [5, 4, 3, 2, 1]\n\nPartial success - 1 test case passed.\nCheck your pointer manipulation logic.');
+    }
+    if (code.includes('while') || code.includes('for')) {
+        return makeResult(1, testCases.length,
+            'Output: None\n\nPartial success - logic started.\nRemember to save the next node before changing pointers.');
+    }
+    return makeResult(0, testCases.length, 'No test cases passed yet. Think about how to reverse the pointers.');
+}
+
+function simulateFizzBuzz(code, language, testCases) {
+    const hasModulo = code.includes('%');
+    const hasThreeCheck = code.includes('3');
+    const hasFiveCheck = code.includes('5');
+    const hasFifteenCheck = code.includes('15') || (code.includes('3') && code.includes('5') && code.match(/%\s*3.*%\s*5|%\s*5.*%\s*3/s));
+    const hasFizzBuzz = code.includes('FizzBuzz') || code.includes('Fizz') && code.includes('Buzz');
+
+    if (hasModulo && hasFizzBuzz && hasThreeCheck && hasFiveCheck) {
+        if (hasFifteenCheck || code.includes('elif') || code.includes('else if')) {
+            return makeResult(testCases.length, testCases.length,
+                'Output: ["1","2","Fizz","4","Buzz",...,"FizzBuzz"]\n\nAll test cases passed!\nGreat implementation of FizzBuzz!');
+        }
+        return makeResult(2, testCases.length,
+            'Output: ["1","2","Fizz","4","Buzz",...]\n\nPartial success - 2 test cases passed.\nCheck the order of your conditions - test for 15 (or 3 AND 5) first!');
+    }
+    if (hasModulo && (hasThreeCheck || hasFiveCheck)) {
+        return makeResult(1, testCases.length,
+            'Output: ["1","2","Fizz",...]\n\nPartial success - 1 test case passed.\nMake sure you handle Fizz, Buzz, AND FizzBuzz cases.');
+    }
+    return makeResult(0, testCases.length, 'No test cases passed yet. Use modulo (%) to check divisibility.');
 }
 
 // =============================================================================
