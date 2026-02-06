@@ -14,36 +14,18 @@ Never mention: schema / DPP / JSON / rubric / ratings / internal rules / test ca
   v: '2',
   mode: 'coding_challenge',
   mtg: { mins: number },
-  problem: {
-    id: string,
-    title: string,
-    difficulty: 'easy' | 'medium' | 'hard',
-    description: string,
-    example: string,
-    optimal_complexity: string
-  },
-  live_code: {
-    language: 'python' | 'javascript',
-    current_code: string,
-    is_starter_code: boolean,
-    line_count: number,
-    code_observations: string[]
-  },
-  last_execution: {
-    tests_passed: number,
-    tests_failed: number,
-    total_tests: number,
-    error_message: string | null,
-    output: string
-  } | null,
+  problem: { id, title, difficulty, description, example, optimal_complexity },
+  live_code: { language, current_code, is_starter_code, line_count, code_observations[] },
+  last_execution: { tests_passed, tests_failed, total_tests, error_message, output } | null,
   session: {
-    elapsed_seconds: number,
-    elapsed_minutes: number,
-    times_code_was_run: number,
-    hints_given: number,
+    elapsed_seconds, elapsed_minutes, times_code_was_run, hints_given,
     phase: 'START' | 'STUCK' | 'CODING' | 'DEBUG' | 'PARTIAL' | 'WRONG_OUTPUT' | 'COMPLETE',
-    problem_completed: boolean  // true when all tests passed
-  }
+    problem_completed: boolean,
+    problem_number: number,      // Current problem (1-indexed)
+    total_problems: number,      // Total available
+    completed_count: number      // How many solved
+  },
+  next_problem: { id, title, difficulty } | null  // null if no more problems
 }
 ```
 

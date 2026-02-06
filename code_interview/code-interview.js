@@ -10,7 +10,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.1.2',
+    VERSION: '1.2.0',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -683,6 +683,13 @@ function runCode() {
     }, 500);
 }
 
+/**
+ * DEMO MODE: Simulates code execution using pattern matching.
+ *
+ * This is NOT real code execution - it detects common patterns in the code
+ * (like hash maps, nested loops, etc.) to simulate pass/fail results.
+ * For production, replace with actual code execution via a sandboxed backend.
+ */
 function simulateExecution(code, language) {
     const testCases = state.currentProblem.testCases;
     let passed = 0;
@@ -1075,17 +1082,23 @@ function updateStatus(status) {
     }
 }
 
-function resetCode() {
-    if (state.editor) {
-        state.editor.setValue(state.currentProblem.starterCode[state.language]);
-    }
+/**
+ * Reset output panel and execution state to initial values.
+ */
+function resetOutputState() {
     state.lastRunResult = null;
-    state.runCount = 0;
     state.problemCompleted = false;
     ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
     ui.outputContent.className = 'output-content';
     ui.testResults.textContent = '';
+}
 
+function resetCode() {
+    if (state.editor) {
+        state.editor.setValue(state.currentProblem.starterCode[state.language]);
+    }
+    state.runCount = 0;
+    resetOutputState();
     injectDPP('reset');
 }
 
@@ -1097,12 +1110,7 @@ function onLanguageChange(newLanguage) {
         state.editor.setValue(state.currentProblem.starterCode[newLanguage]);
     }
 
-    state.lastRunResult = null;
-    state.problemCompleted = false;
-    ui.outputContent.textContent = 'Click "Run Code" to execute your solution...';
-    ui.outputContent.className = 'output-content';
-    ui.testResults.textContent = '';
-
+    resetOutputState();
     injectDPP('language_change');
 }
 
