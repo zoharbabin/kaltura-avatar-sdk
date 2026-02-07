@@ -948,20 +948,15 @@ async function analyzeSessionWithData(transcript, dpp) {
     console.log('Analyzing session with', transcript.length, 'transcript entries');
 
     try {
-        // Format transcript for API
         const formattedTranscript = transcript.map(entry => ({
             role: entry.role === 'Avatar' ? 'assistant' : 'user',
             content: entry.text
         }));
 
-        // Build list of all problems attempted during session
+        // Build list of problems attempted
         const problemsAttemptedList = state.completedProblems.map(id => ({
-            id: id,
-            title: PROBLEMS[id]?.title || id,
-            difficulty: PROBLEMS[id]?.difficulty || 'unknown'
+            id, title: PROBLEMS[id]?.title || id, difficulty: PROBLEMS[id]?.difficulty || 'unknown'
         }));
-
-        // Include current problem if not already in completed list
         if (!state.completedProblems.includes(state.currentProblem.id)) {
             problemsAttemptedList.push({
                 id: state.currentProblem.id,
@@ -970,145 +965,171 @@ async function analyzeSessionWithData(transcript, dpp) {
             });
         }
 
-        // Add coding-specific context with FULL session history
-        const analysisContext = {
-            ...dpp,
-            analysis_type: 'coding_interview',
-            // User info for the report
+        // Build lean DPP for API calls
+        const leanDpp = {
+            mode: dpp.mode,
+            session: dpp.session,
+            live_code: dpp.live_code ? { language: dpp.live_code.language } : undefined,
             candidate: {
                 first_name: state.user.firstName,
                 last_name: state.user.lastName,
-                full_name: `${state.user.firstName} ${state.user.lastName}`.trim(),
-                email: state.user.email
+                full_name: `${state.user.firstName} ${state.user.lastName}`.trim()
             },
-            final_code: state.editor?.getValue() || '',
-            // Explicitly list all problems for the summary to analyze
             all_problems_in_session: PROBLEM_ORDER.map(id => ({
-                id: id,
-                title: PROBLEMS[id].title,
-                difficulty: PROBLEMS[id].difficulty
-            })),
-            problems_attempted_list: problemsAttemptedList,
-            problems_completed_ids: state.completedProblems,
-            total_problems_attempted: problemsAttemptedList.length,
-            total_problems_completed: state.completedProblems.length,
-            summary_prompt: `Analyze this coding interview session THOROUGHLY. The candidate (${state.user.firstName} ${state.user.lastName}) attempted ${problemsAttemptedList.length} problem(s): ${problemsAttemptedList.map(p => p.title).join(', ')}. For EACH problem attempted, provide detailed evaluation of creativity, logic, code quality, explainability, complexity understanding, and scale awareness. Review the entire transcript to extract specific evidence for each assessment. Provide comprehensive feedback, not minimal summaries.`
+                id, title: PROBLEMS[id].title, difficulty: PROBLEMS[id].difficulty
+            }))
         };
 
-        // Build a lean DPP for analysis — strip fields the LLM doesn't need
-        const leanDpp = {
-            v: analysisContext.v,
-            mode: analysisContext.mode,
-            user: analysisContext.user,
-            mtg: analysisContext.mtg,
-            problem: analysisContext.problem ? {
-                id: analysisContext.problem.id,
-                title: analysisContext.problem.title,
-                difficulty: analysisContext.problem.difficulty,
-                optimal_complexity: analysisContext.problem.optimal_complexity
-            } : undefined,
-            live_code: analysisContext.live_code ? {
-                language: analysisContext.live_code.language,
-                current_code: analysisContext.live_code.current_code,
-                line_count: analysisContext.live_code.line_count
-            } : undefined,
-            last_execution: analysisContext.last_execution ? {
-                tests_passed: analysisContext.last_execution.tests_passed,
-                tests_failed: analysisContext.last_execution.tests_failed,
-                total_tests: analysisContext.last_execution.total_tests
-            } : undefined,
-            session: analysisContext.session,
-            analysis_type: analysisContext.analysis_type,
-            candidate: analysisContext.candidate,
-            final_code: analysisContext.final_code,
-            all_problems_in_session: analysisContext.all_problems_in_session,
-            problems_attempted_list: analysisContext.problems_attempted_list,
-            problems_completed_ids: analysisContext.problems_completed_ids,
-            total_problems_attempted: analysisContext.total_problems_attempted,
-            total_problems_completed: analysisContext.total_problems_completed
-        };
+        // --- Phase 1: Analyze each problem in parallel ---
+        updateAnalysisProgress('Analyzing problems...', 0, problemsAttemptedList.length);
 
-        // Build request body - include custom summary_prompt if loaded
-        const requestBody = {
-            transcript: formattedTranscript,
-            dpp: leanDpp
-        };
+        const perProblemPromises = problemsAttemptedList.map(problem =>
+            callAnalysisAPI({
+                analysis_mode: 'per_problem',
+                transcript: formattedTranscript,
+                problem_focus: problem,
+                dpp: leanDpp
+            })
+        );
 
-        // If custom summary prompt was loaded, send it to override API default
-        if (state.summaryPrompt) {
-            requestBody.summary_prompt = state.summaryPrompt;
-            console.log('Using custom summary prompt for detailed analysis');
-        }
+        const perProblemResults = await Promise.allSettled(perProblemPromises);
 
-        const payload = JSON.stringify(requestBody);
-        const MAX_RETRIES = 3;
-        let lastError = null;
-
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                if (attempt > 1) {
-                    const delay = attempt * 5000; // 5s, 10s backoff
-                    console.log(`Retry ${attempt}/${MAX_RETRIES} after ${delay / 1000}s...`);
-                    if (ui.reportContent) {
-                        ui.reportContent.innerHTML = `
-                            <div class="analyzing-state">
-                                <div class="spinner"></div>
-                                <p>Analysis is taking longer than expected... retrying (${attempt}/${MAX_RETRIES})</p>
-                            </div>
-                        `;
-                    }
-                    await new Promise(r => setTimeout(r, delay));
-                }
-
-                const response = await fetch(CONFIG.ANALYSIS_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: payload
+        // Collect successful results, log failures
+        const problemAnalyses = [];
+        perProblemResults.forEach((result, idx) => {
+            const problem = problemsAttemptedList[idx];
+            if (result.status === 'fulfilled' && result.value.success) {
+                problemAnalyses.push(result.value.summary);
+                console.log(`Problem "${problem.title}" analyzed:`, result.value.usage);
+            } else {
+                const error = result.status === 'rejected' ? result.reason : result.value?.error;
+                console.warn(`Problem "${problem.title}" analysis failed:`, error);
+                // Insert a minimal fallback entry
+                problemAnalyses.push({
+                    problem_id: problem.id,
+                    problem_title: problem.title,
+                    difficulty: problem.difficulty,
+                    outcome: 'solved',
+                    tests_passed: 0, tests_total: 0,
+                    approach: 'other', approach_used: 'Analysis unavailable',
+                    time_complexity: '?', space_complexity: '?',
+                    optimal: false, time_spent_minutes: 0, hints_used: 0,
+                    scores: { creativity: 3, logic: 3, code_quality: 3, explainability: 3, complexity: 3, scale: 3 },
+                    eval_notes: 'Per-problem analysis failed; default scores applied.'
                 });
-
-                // Retry on 503 (API Gateway timeout) or 429 (throttle)
-                if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
-                    console.warn(`Analysis API returned ${response.status}, will retry...`);
-                    lastError = `API returned ${response.status}`;
-                    continue;
-                }
-
-                if (!response.ok) {
-                    console.error(`Analysis API returned ${response.status}: ${response.statusText}`);
-                    showSessionSummary(null, `API error: ${response.status} ${response.statusText}`);
-                    return;
-                }
-
-                const result = await response.json();
-
-                if (result.success) {
-                    state.lastSessionSummary = result.summary;
-                    console.log('Session analysis complete:', state.lastSessionSummary);
-                    showSessionSummary(result.summary);
-                } else {
-                    console.error('Analysis failed:', result.error);
-                    showSessionSummary(null, result.error);
-                }
-                return; // Success or non-retryable error — exit loop
-
-            } catch (fetchError) {
-                console.error(`Attempt ${attempt} failed:`, fetchError);
-                lastError = fetchError.message;
-                if (attempt === MAX_RETRIES) break;
             }
+            updateAnalysisProgress('Analyzing problems...', idx + 1, problemsAttemptedList.length);
+        });
+
+        // --- Phase 2: Synthesize into overall assessment ---
+        updateAnalysisProgress('Generating overall assessment...', null, null);
+
+        const synthesisResult = await callAnalysisAPI({
+            analysis_mode: 'synthesis',
+            problem_results: problemAnalyses,
+            dpp: leanDpp
+        });
+
+        if (!synthesisResult.success) {
+            console.error('Synthesis failed:', synthesisResult.error);
+            showSessionSummary(null, `Synthesis failed: ${synthesisResult.error}`);
+            return;
         }
 
-        // All retries exhausted
-        console.error('All analysis attempts failed:', lastError);
-        const isCors = lastError?.includes('Failed to fetch');
-        const detail = isCors
-            ? 'CORS error — the analysis API is not reachable from this origin.'
-            : `Analysis failed after ${MAX_RETRIES} attempts: ${lastError}`;
-        showSessionSummary(null, detail);
+        console.log('Synthesis complete:', synthesisResult.usage);
+
+        // --- Phase 3: Assemble final summary ---
+        const synthesis = synthesisResult.summary;
+        const finalSummary = {
+            v: '1.5',
+            mode: dpp.mode || 'coding_challenge',
+            ctx: {
+                org: '', problem_id: state.currentProblem.id,
+                problem_title: state.currentProblem.title,
+                difficulty: state.currentProblem.difficulty || '',
+                language: dpp.live_code?.language || 'python',
+                person: leanDpp.candidate.full_name, subj_id: ''
+            },
+            session_stats: {
+                elapsed_minutes: dpp.session?.elapsed_minutes || 0,
+                target_minutes: dpp.mtg?.mins || 0,
+                times_code_run: dpp.session?.times_code_was_run || 0,
+                hints_given: dpp.session?.hints_given || 0,
+                tests_passed: dpp.last_execution?.tests_passed || 0,
+                tests_total: dpp.last_execution?.total_tests || 0,
+                problems_completed: state.completedProblems.length,
+                problems_total: dpp.session?.total_problems || PROBLEM_ORDER.length
+            },
+            problems_attempted: problemAnalyses,
+            debugging_history: [],
+            turns: formattedTranscript.filter(t => t.role === 'user').length,
+            overview: synthesis.overview || '',
+            skill_assessment: synthesis.skill_assessment || {},
+            potential_assessment: synthesis.potential_assessment || {},
+            fit: synthesis.fit || {},
+            strengths: synthesis.strengths || [],
+            areas_for_improvement: synthesis.areas_for_improvement || [],
+            gaps: synthesis.gaps || [],
+            remaining_problems: [],
+            cq: synthesis.cq || {},
+            risk: synthesis.risk || { flags: ['none'], escalated: false, reason: '' },
+            next_steps: synthesis.next_steps || [],
+            final_code: state.editor?.getValue() || dpp.final_code || ''
+        };
+
+        state.lastSessionSummary = finalSummary;
+        console.log('Session analysis complete (iterative):', finalSummary);
+        showSessionSummary(finalSummary);
+
     } catch (error) {
         console.error('Failed to analyze session:', error);
         showSessionSummary(null, error.message);
     }
+}
+
+/**
+ * Call the analysis API with retry logic.
+ * Returns { success, summary, usage } or { success: false, error }.
+ */
+async function callAnalysisAPI(payload) {
+    const MAX_RETRIES = 2;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            if (attempt > 1) {
+                await new Promise(r => setTimeout(r, 3000));
+            }
+            const response = await fetch(CONFIG.ANALYSIS_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
+                console.warn(`API returned ${response.status}, retrying...`);
+                continue;
+            }
+            if (!response.ok) {
+                return { success: false, error: `HTTP ${response.status}` };
+            }
+            return await response.json();
+        } catch (err) {
+            if (attempt === MAX_RETRIES) return { success: false, error: err.message };
+        }
+    }
+    return { success: false, error: 'Max retries exceeded' };
+}
+
+/**
+ * Update the analysis progress indicator in the report area.
+ */
+function updateAnalysisProgress(message, done, total) {
+    if (!ui.reportContent) return;
+    const progress = (done != null && total) ? ` (${done}/${total})` : '';
+    ui.reportContent.innerHTML = `
+        <div class="analyzing-state">
+            <div class="spinner"></div>
+            <p>${message}${progress}</p>
+        </div>
+    `;
 }
 
 function showSessionSummary(summary, errorDetail = null) {
