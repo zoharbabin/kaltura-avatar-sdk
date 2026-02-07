@@ -1,5 +1,7 @@
 # Kaltura Avatar SDK
 
+> **Note:** This is a non-official, research-level SDK. For official Kaltura SDKs, see [github.com/kaltura](https://github.com/kaltura/).
+
 Embed AI avatar conversations in any website with just a few lines of code.
 
 **Zero dependencies** · **~4KB minified** · **Works everywhere**
