@@ -206,8 +206,9 @@ echo "  curl -X POST '$API_ENDPOINT' \\"
 echo "    -H 'Content-Type: application/json' \\"
 echo "    -d '{\"transcript\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"dpp\":{\"mode\":\"interview\",\"org\":{\"n\":\"Test\"},\"role\":{\"t\":\"Engineer\"},\"subj\":{\"name\":\"John\"}}}'"
 echo ""
-echo "Add to hr-demo.js:"
-echo "  const ANALYSIS_API_URL = '$API_ENDPOINT';"
+echo "Update the ANALYSIS_API_URL in both JS files:"
+echo "  hr_avatar/hr-demo.js:     ANALYSIS_API_URL: '$API_ENDPOINT'"
+echo "  code_interview/code-interview.js: ANALYSIS_API_URL: '$API_ENDPOINT'"
 echo ""
 
 # Save URL to file

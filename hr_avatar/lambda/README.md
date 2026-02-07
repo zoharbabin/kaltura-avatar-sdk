@@ -1,34 +1,36 @@
-# HR Avatar Call Analysis - Lambda Backend
+# Avatar Analysis - Lambda Backend
 
-A serverless API that analyzes HR Avatar call transcripts using AWS Bedrock (Claude Haiku) and returns structured JSON summaries.
+A serverless API that analyzes Avatar call/session transcripts using AWS Bedrock (Claude 3.5 Haiku) and returns structured JSON summaries. Used by both the HR Avatar and Code Interview demos.
 
 ## Architecture
 
 ```
 ┌─────────────┐      HTTPS       ┌──────────────┐     ┌─────────────┐
 │   Browser   │ ────────────────▶│  API Gateway │────▶│   Lambda    │
-│  (HR Demo)  │ ◀──────────────── │   (HTTP v2)  │◀────│  (Python)   │
+│ (Demo Page) │ ◀──────────────── │   (HTTP v2)  │◀────│  (Python)   │
 └─────────────┘      JSON        └──────────────┘     └──────┬──────┘
                                                              │
                                                      ┌───────▼───────┐
                                                      │    Bedrock    │
-                                                     │ Claude Haiku  │
+                                                     │Claude 3.5 Haiku│
                                                      └───────────────┘
 ```
 
+**Security:** The Lambda is NOT directly accessible from the internet. It is exposed only via API Gateway, enforced by the Lambda resource policy (`sourceArn` scoped to the specific API Gateway ID).
+
 ## Features
 
-- **Serverless** - Pay only for what you use (~$0.002 per analysis)
-- **Fast** - Claude 3 Haiku typically responds in 5-15 seconds
-- **Secure** - No API keys in browser; IAM-based authentication
+- **Serverless** - Pay only for what you use
+- **Custom prompts** - Supports optional `summary_prompt` field to override the default system prompt
+- **Secure** - No API keys in browser; Lambda accessible only via API Gateway
 - **CORS-enabled** - Works from any origin
-- **Resilient** - 90-second timeout, automatic retries, structured errors
+- **Resilient** - 90-second Lambda timeout, automatic Bedrock retries, structured errors
 
 ## Prerequisites
 
 - AWS CLI configured (`aws sts get-caller-identity` should work)
 - Bedrock access enabled in your AWS account
-- Claude models enabled in Bedrock console (us-west-2 region)
+- Claude 3.5 Haiku enabled in Bedrock console (us-west-2 region)
 
 ## Quick Deploy
 
@@ -43,69 +45,13 @@ The script will:
 3. Create an HTTP API Gateway with CORS
 4. Output the API endpoint URL
 
-## Manual Deployment
-
-### Step 1: Create IAM Role
+**Note:** If you already have a manually-created API Gateway (e.g., `30vsmo8j0l`), you can skip the deploy script and just update the Lambda code:
 
 ```bash
-# Create the role
-aws iam create-role \
-  --role-name hr-avatar-analysis-lambda-role \
-  --assume-role-policy-document file://trust-policy.json
-
-# Attach Bedrock access
-aws iam put-role-policy \
-  --role-name hr-avatar-analysis-lambda-role \
-  --policy-name bedrock-invoke \
-  --policy-document file://bedrock-policy.json
-
-# Attach Lambda execution policy
-aws iam attach-role-policy \
-  --role-name hr-avatar-analysis-lambda-role \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-```
-
-### Step 2: Deploy Lambda Function
-
-```bash
-# Package
 zip -j function.zip lambda_function.py
-
-# Create function
-aws lambda create-function \
+aws lambda update-function-code \
   --function-name hr-avatar-analysis \
-  --runtime python3.11 \
-  --handler lambda_function.lambda_handler \
-  --role arn:aws:iam::YOUR_ACCOUNT_ID:role/hr-avatar-analysis-lambda-role \
-  --zip-file fileb://function.zip \
-  --timeout 90 \
-  --memory-size 256 \
-  --description "Analyzes HR Avatar call transcripts using Bedrock Claude"
-```
-
-### Step 3: Create HTTP API Gateway
-
-```bash
-# Create HTTP API with Lambda integration
-aws apigatewayv2 create-api \
-  --name hr-avatar-analysis-api \
-  --protocol-type HTTP \
-  --cors-configuration '{"AllowOrigins":["*"],"AllowMethods":["POST","OPTIONS"],"AllowHeaders":["content-type"]}' \
-  --target arn:aws:lambda:us-west-2:YOUR_ACCOUNT_ID:function:hr-avatar-analysis
-
-# Get the API endpoint
-aws apigatewayv2 get-apis --query "Items[?Name=='hr-avatar-analysis-api'].ApiEndpoint" --output text
-```
-
-### Step 4: Add Lambda Permission
-
-```bash
-# Allow API Gateway to invoke Lambda
-aws lambda add-permission \
-  --function-name hr-avatar-analysis \
-  --statement-id apigateway-invoke \
-  --action lambda:InvokeFunction \
-  --principal apigateway.amazonaws.com
+  --zip-file fileb://function.zip
 ```
 
 ## API Usage
@@ -127,7 +73,8 @@ Content-Type: application/json
     "role": {"t": "Job Title", "id": "ROLE-001"},
     "subj": {"name": "Candidate Name", "id": "CAND-001"},
     "mtg": {"mins": 5, "focus": ["topic1", "topic2"]}
-  }
+  },
+  "summary_prompt": "(optional) Custom system prompt to override the default"
 }
 ```
 
@@ -145,9 +92,9 @@ Content-Type: application/json
       "person": "Candidate Name"
     },
     "overview": "...",
-    "fit": { "score_0_100": 75, "rec": "yes", ... },
-    "gaps": [...],
-    "next_steps": [...]
+    "fit": { "score_0_100": 75, "rec": "yes" },
+    "gaps": [],
+    "next_steps": []
   },
   "usage": {
     "input_tokens": 1234,
@@ -166,34 +113,14 @@ Content-Type: application/json
 }
 ```
 
-## Testing
-
-```bash
-# Test with curl
-curl -X POST https://YOUR_API_ENDPOINT/ \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "transcript": [
-      {"role": "assistant", "content": "Hello, how are you?"},
-      {"role": "user", "content": "I am doing well, thanks!"}
-    ],
-    "dpp": {
-      "mode": "interview",
-      "org": {"n": "Test Co"},
-      "role": {"t": "Engineer"},
-      "subj": {"name": "Test User"}
-    }
-  }'
-```
-
 ## Configuration
 
 Environment variables (set in Lambda console or via CLI):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MODEL_ID` | `anthropic.claude-3-haiku-20240307-v1:0` | Bedrock model ID |
-| `MAX_TOKENS` | `4096` | Maximum output tokens |
+| Variable | Current Value | Description |
+|----------|---------------|-------------|
+| `MODEL_ID` | `anthropic.claude-3-5-haiku-20241022-v1:0` | Bedrock model ID |
+| `MAX_TOKENS` | `8192` | Maximum output tokens |
 | `TEMPERATURE` | `0.3` | Model temperature (lower = more deterministic) |
 
 ### Change Model
@@ -201,8 +128,14 @@ Environment variables (set in Lambda console or via CLI):
 ```bash
 aws lambda update-function-configuration \
   --function-name hr-avatar-analysis \
-  --environment "Variables={MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0}"
+  --environment "Variables={MODEL_ID=anthropic.claude-3-5-haiku-20241022-v1:0,MAX_TOKENS=8192,TEMPERATURE=0.3}"
 ```
+
+Available models:
+- `anthropic.claude-3-5-haiku-20241022-v1:0` (current - fast, good quality)
+- `anthropic.claude-3-haiku-20240307-v1:0` (older, cheaper)
+- `anthropic.claude-3-sonnet-20240229-v1:0` (balanced)
+- `anthropic.claude-3-opus-20240229-v1:0` (best quality, expensive)
 
 ## Updating the Function
 
@@ -215,14 +148,9 @@ aws lambda update-function-code \
   --zip-file fileb://function.zip
 ```
 
-## Cost Estimate
-
-| Component | Cost |
-|-----------|------|
-| Lambda | ~$0.0000001 per request (256MB, 15s avg) |
-| API Gateway | ~$1.00 per million requests |
-| Bedrock Claude Haiku | ~$0.00025/1K input + $0.00125/1K output tokens |
-| **Typical analysis** | **~$0.002 per call** |
+Then update the `ANALYSIS_API_URL` in both:
+- `hr_avatar/hr-demo.js`
+- `code_interview/code-interview.js`
 
 ## Monitoring
 
@@ -252,45 +180,28 @@ aws iam detach-role-policy --role-name hr-avatar-analysis-lambda-role --policy-a
 aws iam delete-role --role-name hr-avatar-analysis-lambda-role
 ```
 
-## Extending
-
-### Add New Summary Fields
-
-1. Edit the `SYSTEM_PROMPT` in `lambda_function.py`
-2. Update `call_summary.schema.json` with new fields
-3. Update the modal display in `hr-demo.js` (`showCallSummary()`)
-
-### Use Different Model
-
-Change `MODEL_ID` environment variable. Options:
-- `anthropic.claude-3-haiku-20240307-v1:0` (fast, cheap)
-- `anthropic.claude-3-sonnet-20240229-v1:0` (balanced)
-- `anthropic.claude-3-opus-20240229-v1:0` (best quality, expensive)
-
-### Add Authentication
-
-1. Create a Cognito User Pool
-2. Update API Gateway to use JWT authorizer
-3. Add authentication to frontend
-
 ## Troubleshooting
 
 ### 403 Forbidden
 - Check Lambda resource policy allows API Gateway
 - Verify API Gateway has correct Lambda integration
 
+### 503 Service Unavailable
+- HTTP API Gateway has a hard 30-second timeout
+- Client-side retry logic handles this (3 attempts with backoff)
+- Consider simplifying the summary prompt to reduce response time
+
 ### Timeout (504)
 - Increase Lambda timeout (max 900s)
-- Consider using a faster model (Haiku)
 - Check if transcript is unusually large
 
 ### Invalid JSON Response
 - Check CloudWatch logs for parsing errors
-- The Lambda handles markdown code blocks, but unusual formatting may slip through
+- Increase `MAX_TOKENS` if output is being truncated
 
 ### Bedrock Throttling
-- Implement exponential backoff on client
-- Request quota increase from AWS
+- Client implements retry with backoff for 429 responses
+- Request quota increase from AWS if persistent
 
 ## Files
 
@@ -300,5 +211,5 @@ Change `MODEL_ID` environment variable. Options:
 | `deploy.sh` | Automated deployment script |
 | `cleanup.sh` | Resource cleanup script |
 | `trust-policy.json` | IAM trust policy for Lambda |
-| `bedrock-policy.json` | IAM policy for Bedrock access |
-| `.api-url` | Stores deployed API URL (created by deploy.sh) |
+| `bedrock-policy.json` | IAM policy for Bedrock access (includes Claude 3.5 Haiku) |
+| `.api-url` | Stores deployed API URL |

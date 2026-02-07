@@ -1,12 +1,15 @@
 """
-HR Avatar Call Analysis Lambda Function
+Avatar Analysis Lambda Function
 
-Analyzes HR call transcripts using AWS Bedrock (Claude Haiku) and returns
-structured summaries following the call_summary.schema.json format.
+Analyzes call/session transcripts using AWS Bedrock and returns structured
+JSON summaries. Used by both HR Avatar and Code Interview demos.
+
+Supports an optional 'summary_prompt' field in the request body to override
+the default system prompt (used by code interview for custom schemas).
 
 Environment Variables:
-    MODEL_ID: Bedrock model ID (default: anthropic.claude-3-haiku-20240307-v1:0)
-    MAX_TOKENS: Maximum output tokens (default: 4096)
+    MODEL_ID: Bedrock model ID (currently: anthropic.claude-3-5-haiku-20241022-v1:0)
+    MAX_TOKENS: Maximum output tokens (currently: 8192)
     TEMPERATURE: Model temperature (default: 0.3)
 """
 
