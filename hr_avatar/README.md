@@ -45,9 +45,10 @@ hr_avatar/
 │   ├── post-interview_*.json         # Post-interview scenarios
 │   └── separation_*.json             # Separation scenarios
 │
-└── lambda/                           # Call analysis backend
-    ├── README.md                     # Lambda deployment guide
-    ├── lambda_function.py            # Analysis function (Bedrock Claude)
+└── lambda/                           # Call analysis backend (shared with code_interview)
+    ├── README.md                     # Lambda deployment guide + API reference
+    ├── lambda_function.py            # Analysis function — 3 modes (per-problem, synthesis, full)
+    ├── benchmark.py                  # Performance benchmark (iterative pipeline)
     ├── deploy.sh                     # Deployment script
     ├── cleanup.sh                    # Cleanup script
     └── *.json                        # IAM policy files
@@ -249,7 +250,7 @@ Modify `base_prompt.txt` to change Nora's base personality and instructions.
 
 ### Analysis Output
 
-Edit `lambda/lambda_function.py` to customize the `SYSTEM_PROMPT` that controls how call summaries are generated.
+Edit `HR_SYSTEM_PROMPT` in `lambda/lambda_function.py` to customize how HR call summaries are generated. The Lambda also contains separate prompts for Code Interview analysis (`PER_PROBLEM_SYSTEM_PROMPT`, `SYNTHESIS_SYSTEM_PROMPT`) — see `lambda/README.md` for details.
 
 ## Troubleshooting
 

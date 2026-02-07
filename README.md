@@ -272,21 +272,15 @@ sdk.setTranscriptEnabled(false);
 sdk.clearTranscript();
 ```
 
-## HR Avatar Demo
+## Demo Applications
+
+Both demos share a single Lambda backend for AI-powered analysis. See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment.
+
+### HR Avatar Demo
 
 The `hr_avatar/` folder contains a complete HR use case demo with interview, post-interview, and separation scenarios. See [`hr_avatar/README.md`](hr_avatar/README.md) for detailed documentation.
 
-### Features
-
-- **Interview Scenarios**: Phone screen simulations for various roles (drivers, engineers, analysts)
-- **Post-Interview Calls**: Job offer and rejection feedback calls
-- **Separation Meetings**: Layoff, performance, and misconduct terminations
-- **CV Upload**: Upload candidate resumes (PDF) for personalized interviews
-- **Editable Fields**: Customize candidate name, role, company, location before starting
-- **Live Transcript**: Real-time conversation recording with TXT/MD download
-- **AI Call Analysis**: Automatic call summary generation using AWS Bedrock
-
-### Quick Start
+**Features:** Interview simulations, post-interview calls, separation meetings, CV upload, editable fields, live transcript, AI call analysis.
 
 ```bash
 cd hr_avatar
@@ -294,12 +288,24 @@ python3 -m http.server 8080
 # Open http://localhost:8080
 ```
 
+### Code Interview Demo
+
+The `code_interview/` folder contains an AI pair programming interview. See [`code_interview/README.md`](code_interview/README.md) for detailed documentation.
+
+**Features:** Real-time code context injection (Monaco editor), multi-problem sessions, avatar-controlled flow, iterative parallel analysis with per-problem scoring and synthesis.
+
+```bash
+cd code_interview
+python3 -m http.server 8081
+# Open http://localhost:8081
+```
+
 ### Dynamic Page Prompt (DPP)
 
-HR scenarios use the Dynamic Page Prompt system to customize avatar behavior:
+Both demos use the Dynamic Page Prompt system to customize avatar behavior at runtime:
 
 ```javascript
-// Load scenario JSON
+// Load scenario/config JSON
 const response = await fetch('scenario.json');
 const scenarioData = await response.json();
 
@@ -308,38 +314,22 @@ await sdk.start();
 sdk.injectPrompt(JSON.stringify(scenarioData));
 ```
 
-### DPP Schema (v2)
+### Analysis Backend
 
-```json
-{
-  "v": "2",
-  "mode": "interview | post_interview | separation",
-  "org": { "n": "Company Name", "tone": "warm, professional" },
-  "role": { "t": "Job Title", "loc": "Location", "must": ["requirement"] },
-  "subj": { "name": "Person Name", "id": "CAND-001" },
-  "mtg": { "mins": 5, "focus": ["topic1", "topic2"] },
-  "case": { "type": "Layoff", "talk": ["Approved talking point"] }
-}
-```
+Both demos share a single Lambda function (`hr_avatar/lambda/`) that routes requests based on the `analysis_mode` field:
 
-See `hr_avatar/dynamic_page_prompt.schema.json` for the complete schema.
-
-### Call Analysis Backend
-
-The HR demo includes a serverless backend for AI-powered call analysis:
+| Mode | Used By | Description |
+|------|---------|-------------|
+| `per_problem` | Code Interview | Analyze one coding problem (~5s) |
+| `synthesis` | Code Interview | Synthesize results into overall assessment (~8s) |
+| *(default)* | HR Avatar | Full single-call analysis (v4.1 schema) |
 
 ```bash
 cd hr_avatar/lambda
 ./deploy.sh  # Deploys to AWS Lambda + API Gateway
 ```
 
-See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment details.
-
-### Adding New Scenarios
-
-1. Create a new JSON file in `hr_avatar/dynamic_page_prompt_samples/`
-2. Add the scenario to `SCENARIOS` in `hr_avatar/hr-demo.js`
-3. The UI automatically picks up new scenarios
+See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment details, API usage, and benchmarking.
 
 ## Files
 
@@ -372,12 +362,25 @@ See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment de
 | `hr_avatar/call_summary.schema.json` | Call analysis output schema (v4.1) |
 | `hr_avatar/dynamic_page_prompt_samples/` | Sample scenario JSON files |
 
-### Lambda Backend
+### Code Interview Demo
 
 | File | Description |
 |------|-------------|
-| `hr_avatar/lambda/README.md` | Lambda deployment guide |
-| `hr_avatar/lambda/lambda_function.py` | Bedrock Claude analysis function |
+| `code_interview/README.md` | Code interview documentation |
+| `code_interview/index.html` | Interview page (Monaco editor + avatar) |
+| `code_interview/code-interview.js` | Application logic (problems, SDK, iterative analysis) |
+| `code_interview/code-interview.css` | Dark theme styles |
+| `code_interview/base_prompt.txt` | Avatar persona and behavior instructions |
+| `code_interview/goals.txt` | Session goals for the avatar |
+| `code_interview/dynamic_page_prompt.schema.json` | DPP JSON Schema for code interview |
+
+### Lambda Backend (shared)
+
+| File | Description |
+|------|-------------|
+| `hr_avatar/lambda/README.md` | Lambda deployment guide + API reference |
+| `hr_avatar/lambda/lambda_function.py` | Bedrock Claude analysis — 3 modes (per-problem, synthesis, full) |
+| `hr_avatar/lambda/benchmark.py` | Performance benchmark for iterative pipeline |
 | `hr_avatar/lambda/deploy.sh` | Automated deployment script |
 | `hr_avatar/lambda/cleanup.sh` | Resource cleanup script |
 | `hr_avatar/lambda/*.json` | IAM policy files |

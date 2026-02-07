@@ -3,6 +3,14 @@
  *
  * Demonstrates real-time code context injection to an AI avatar,
  * enabling intelligent pair programming assistance.
+ *
+ * Session analysis uses an iterative parallel pipeline:
+ *   Phase 1: N parallel per-problem Lambda calls (one per problem attempted)
+ *   Phase 2: 1 synthesis Lambda call (combines per-problem results)
+ *   Phase 3: Client-side assembly of final v1.5 summary
+ *
+ * @see analyzeSessionWithData — orchestrates the 3-phase analysis
+ * @see callAnalysisAPI — HTTP helper with retry logic (503/429 → 3s backoff)
  */
 
 // =============================================================================
@@ -10,7 +18,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.5.4',
+    VERSION: '1.5.5',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -19,7 +27,7 @@ const CONFIG = Object.freeze({
     // Call analysis API endpoint (same as HR demo)
     ANALYSIS_API_URL: 'https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com',
 
-    // Summary prompt file path (loaded at runtime)
+    // Summary prompt file path (legacy — not used by iterative analysis flow)
     SUMMARY_PROMPT_PATH: 'summary_prompt.txt',
 
     // Code context injection timing
@@ -938,6 +946,19 @@ async function handleSessionEnd() {
     state.isEndingSession = false;
 }
 
+/**
+ * Orchestrate iterative parallel analysis of the coding session.
+ *
+ * Phase 1: Fire N parallel per-problem Lambda calls (via callAnalysisAPI).
+ * Phase 2: Send one synthesis call with all per-problem results.
+ * Phase 3: Assemble the final v1.5 summary and display the report.
+ *
+ * Failed per-problem calls produce a neutral fallback entry (scores=3)
+ * so the synthesis and report still render.
+ *
+ * @param {Array} transcript - SDK transcript entries ({role, text, timestamp})
+ * @param {Object} dpp - Dynamic Page Prompt snapshot from session end
+ */
 async function analyzeSessionWithData(transcript, dpp) {
     if (!transcript?.length) {
         console.log('Empty transcript, skipping analysis');

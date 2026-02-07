@@ -1,17 +1,21 @@
 """
 Avatar Analysis Lambda Function
 
-Analyzes call/session transcripts using AWS Bedrock and returns structured
-JSON summaries. Used by both HR Avatar and Code Interview demos.
+Shared Lambda serving both the HR Avatar and Code Interview demos.
+Analyzes call/session transcripts using AWS Bedrock (Claude) and returns
+structured JSON summaries.
 
-Supports three analysis modes for code interviews:
-  - "per_problem": Analyze a single problem from the transcript (~3-5s)
-  - "synthesis": Synthesize per-problem results into overall assessment (~3-5s)
-  - (default): Full single-call analysis (HR demo or legacy)
+Analysis modes (selected by the `analysis_mode` request field):
+  - "per_problem": Analyze a single coding problem from a transcript (~5s, max_tokens=512)
+  - "synthesis":   Synthesize per-problem results into an overall assessment (~8s, max_tokens=512)
+  - (default):     Full single-call HR analysis using HR_SYSTEM_PROMPT (v4.1 schema, max_tokens from env)
+
+The Code Interview client fires N parallel per_problem calls then one synthesis call.
+The HR Avatar client sends a single request with no analysis_mode (hits the default path).
 
 Environment Variables:
-    MODEL_ID: Bedrock model ID
-    MAX_TOKENS: Maximum output tokens
+    MODEL_ID:    Bedrock model ID (default: claude-3-haiku)
+    MAX_TOKENS:  Max output tokens for default/full mode (default: 2048)
     TEMPERATURE: Model temperature (default: 0.3)
 """
 

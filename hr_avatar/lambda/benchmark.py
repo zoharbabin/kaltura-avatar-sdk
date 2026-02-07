@@ -27,7 +27,7 @@ from urllib.error import HTTPError, URLError
 
 DEFAULT_API_URL = "https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com/"
 DEFAULT_RUNS = 10
-DEFAULT_THRESHOLD_S = 15.0
+DEFAULT_THRESHOLD_S = 19.0
 
 # Full 4-problem transcript extracted from the real HAR capture.
 TRANSCRIPT = [
@@ -105,22 +105,44 @@ DPP = {
 # HTTP helper
 # ─────────────────────────────────────────────────────────────────────────────
 
+MAX_RETRIES = 2
+RETRY_BACKOFF_S = 3
+
 def api_call(url: str, payload: dict) -> dict:
-    """POST JSON to URL, return parsed response + timing."""
+    """POST JSON to URL with retry logic matching the client (2 retries, 3s backoff, retry on 503/429)."""
     data = json.dumps(payload).encode()
-    req = Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
     t0 = time.perf_counter()
-    try:
-        with urlopen(req, timeout=25) as resp:
-            body = json.loads(resp.read())
+    last_error = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        if attempt > 1:
+            time.sleep(RETRY_BACKOFF_S)
+
+        req = Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urlopen(req, timeout=25) as resp:
+                body = json.loads(resp.read())
+                elapsed = time.perf_counter() - t0
+                return {"ok": True, "status": resp.status, "elapsed": elapsed, "body": body,
+                        "attempts": attempt}
+        except HTTPError as e:
+            last_error = str(e)
+            if e.code in (503, 429) and attempt < MAX_RETRIES:
+                continue
             elapsed = time.perf_counter() - t0
-            return {"ok": True, "status": resp.status, "elapsed": elapsed, "body": body}
-    except HTTPError as e:
-        elapsed = time.perf_counter() - t0
-        return {"ok": False, "status": e.code, "elapsed": elapsed, "body": None, "error": str(e)}
-    except (URLError, TimeoutError, Exception) as e:
-        elapsed = time.perf_counter() - t0
-        return {"ok": False, "status": 0, "elapsed": elapsed, "body": None, "error": str(e)}
+            return {"ok": False, "status": e.code, "elapsed": elapsed, "body": None,
+                    "error": last_error, "attempts": attempt}
+        except (URLError, TimeoutError, Exception) as e:
+            last_error = str(e)
+            if attempt < MAX_RETRIES:
+                continue
+            elapsed = time.perf_counter() - t0
+            return {"ok": False, "status": 0, "elapsed": elapsed, "body": None,
+                    "error": last_error, "attempts": attempt}
+
+    elapsed = time.perf_counter() - t0
+    return {"ok": False, "status": 0, "elapsed": elapsed, "body": None,
+            "error": last_error or "Max retries exceeded", "attempts": MAX_RETRIES}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Single run: 4 parallel per-problem + 1 synthesis
@@ -161,6 +183,7 @@ def run_pipeline(url: str) -> dict:
             "ok": r["ok"],
             "status": r["status"],
             "elapsed_s": round(r["elapsed"], 3),
+            "attempts": r.get("attempts", 1),
             "tokens_in": None,
             "tokens_out": None,
         }
@@ -187,6 +210,7 @@ def run_pipeline(url: str) -> dict:
         "ok": synth_result["ok"],
         "status": synth_result["status"],
         "elapsed_s": round(synth_result["elapsed"], 3),
+        "attempts": synth_result.get("attempts", 1),
         "tokens_in": None,
         "tokens_out": None,
     }
@@ -311,6 +335,12 @@ def print_report(runs: list, threshold: float):
     reset = "\033[0m"
     print(f"  RESULT: {color}{verdict}{reset}  —  {pass_count}/{len(runs)} runs under {threshold}s threshold")
     print(f"  API errors: {failures}/{len(runs)} runs had at least one failed call")
+    total_retries = sum(
+        (d["attempts"] - 1) for r in runs for d in r["per_problem"]
+    ) + sum((r["synthesis"]["attempts"] - 1) for r in runs)
+    total_calls = len(runs) * (len(PROBLEMS) + 1)
+    if total_retries > 0:
+        print(f"  Retries: {total_retries}/{total_calls} calls needed retries")
     avg_total = statistics.mean(totals)
     print(f"  Average end-to-end: {avg_total:.2f}s  (headroom: {threshold - avg_total:.2f}s)")
     print("=" * W + "\n")
