@@ -1007,35 +1007,74 @@ async function analyzeSessionWithData(transcript, dpp) {
             console.log('Using custom summary prompt for detailed analysis');
         }
 
-        const response = await fetch(CONFIG.ANALYSIS_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
+        const payload = JSON.stringify(requestBody);
+        const MAX_RETRIES = 3;
+        let lastError = null;
 
-        if (!response.ok) {
-            console.error(`Analysis API returned ${response.status}: ${response.statusText}`);
-            showSessionSummary(null, `API error: ${response.status} ${response.statusText}`);
-            return;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                if (attempt > 1) {
+                    const delay = attempt * 5000; // 5s, 10s backoff
+                    console.log(`Retry ${attempt}/${MAX_RETRIES} after ${delay / 1000}s...`);
+                    if (ui.reportContent) {
+                        ui.reportContent.innerHTML = `
+                            <div class="analyzing-state">
+                                <div class="spinner"></div>
+                                <p>Analysis is taking longer than expected... retrying (${attempt}/${MAX_RETRIES})</p>
+                            </div>
+                        `;
+                    }
+                    await new Promise(r => setTimeout(r, delay));
+                }
+
+                const response = await fetch(CONFIG.ANALYSIS_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload
+                });
+
+                // Retry on 503 (API Gateway timeout) or 429 (throttle)
+                if ((response.status === 503 || response.status === 429) && attempt < MAX_RETRIES) {
+                    console.warn(`Analysis API returned ${response.status}, will retry...`);
+                    lastError = `API returned ${response.status}`;
+                    continue;
+                }
+
+                if (!response.ok) {
+                    console.error(`Analysis API returned ${response.status}: ${response.statusText}`);
+                    showSessionSummary(null, `API error: ${response.status} ${response.statusText}`);
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    state.lastSessionSummary = result.summary;
+                    console.log('Session analysis complete:', state.lastSessionSummary);
+                    showSessionSummary(result.summary);
+                } else {
+                    console.error('Analysis failed:', result.error);
+                    showSessionSummary(null, result.error);
+                }
+                return; // Success or non-retryable error — exit loop
+
+            } catch (fetchError) {
+                console.error(`Attempt ${attempt} failed:`, fetchError);
+                lastError = fetchError.message;
+                if (attempt === MAX_RETRIES) break;
+            }
         }
 
-        const result = await response.json();
-
-        if (result.success) {
-            state.lastSessionSummary = result.summary;
-            console.log('Session analysis complete:', state.lastSessionSummary);
-            showSessionSummary(result.summary);
-        } else {
-            console.error('Analysis failed:', result.error);
-            showSessionSummary(null, result.error);
-        }
+        // All retries exhausted
+        console.error('All analysis attempts failed:', lastError);
+        const isCors = lastError?.includes('Failed to fetch');
+        const detail = isCors
+            ? 'CORS error — the analysis API is not reachable from this origin.'
+            : `Analysis failed after ${MAX_RETRIES} attempts: ${lastError}`;
+        showSessionSummary(null, detail);
     } catch (error) {
         console.error('Failed to analyze session:', error);
-        const isCors = error.message?.includes('Failed to fetch');
-        const detail = isCors
-            ? 'CORS error — the analysis API is not reachable from this origin. Redeploy the Lambda with CORS enabled, or serve from the allowed origin.'
-            : error.message;
-        showSessionSummary(null, detail);
+        showSessionSummary(null, error.message);
     }
 }
 
