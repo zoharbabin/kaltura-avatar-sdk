@@ -17,7 +17,7 @@ const CONFIG = Object.freeze({
     FLOW_ID: 'agent-16',
 
     // Call analysis API endpoint (same as HR demo)
-    ANALYSIS_API_URL: 'https://d0ppsbn75h.execute-api.us-west-2.amazonaws.com',
+    ANALYSIS_API_URL: 'https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com',
 
     // Summary prompt file path (loaded at runtime)
     SUMMARY_PROMPT_PATH: 'summary_prompt.txt',

@@ -29,7 +29,7 @@ const CONFIG = Object.freeze({
     FLOW_ID: 'agent-15',
 
     // Call analysis API endpoint (AWS Lambda + API Gateway)
-    ANALYSIS_API_URL: 'https://d0ppsbn75h.execute-api.us-west-2.amazonaws.com',
+    ANALYSIS_API_URL: 'https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com',
 
     // Timing
     PROMPT_INJECTION_DELAY_MS: 200,
