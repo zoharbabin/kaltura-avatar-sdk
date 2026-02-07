@@ -179,6 +179,11 @@ def lambda_handler(event, context):
         # Call Bedrock with optional custom system prompt
         summary, usage = call_bedrock(user_prompt, custom_prompt)
 
+        # Inject final_code from DPP (avoid making LLM regenerate it)
+        final_code = dpp.get('final_code') or dpp.get('live_code', {}).get('current_code', '')
+        if final_code and 'final_code' not in summary:
+            summary['final_code'] = final_code
+
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
@@ -214,11 +219,15 @@ def build_analysis_prompt(transcript: list, dpp: dict, schema: dict = None, cust
     # Calculate basic stats
     turn_count = len([t for t in transcript if t.get('role') == 'user'])
 
+    # Strip fields from DPP that are redundant in user prompt context
+    dpp_for_prompt = {k: v for k, v in dpp.items()
+                      if k not in ('summary_prompt',)}
+
     prompt_parts = [
         "Analyze this session and produce a JSON summary.\n",
-        f"## Session Mode\n{dpp.get('mode', 'interview')}\n",
+        f"## Session Mode\n{dpp_for_prompt.get('mode', 'interview')}\n",
         f"## Turn Count\n{turn_count} user turns\n",
-        f"## Dynamic Page Prompt (DPP)\n```json\n{json.dumps(dpp, indent=2)}\n```\n",
+        f"## Dynamic Page Prompt (DPP)\n```json\n{json.dumps(dpp_for_prompt, separators=(',', ':'))}\n```\n",
         f"## Transcript\n{transcript_text}\n",
     ]
 

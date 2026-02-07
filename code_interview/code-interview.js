@@ -995,10 +995,43 @@ async function analyzeSessionWithData(transcript, dpp) {
             summary_prompt: `Analyze this coding interview session THOROUGHLY. The candidate (${state.user.firstName} ${state.user.lastName}) attempted ${problemsAttemptedList.length} problem(s): ${problemsAttemptedList.map(p => p.title).join(', ')}. For EACH problem attempted, provide detailed evaluation of creativity, logic, code quality, explainability, complexity understanding, and scale awareness. Review the entire transcript to extract specific evidence for each assessment. Provide comprehensive feedback, not minimal summaries.`
         };
 
+        // Build a lean DPP for analysis — strip fields the LLM doesn't need
+        const leanDpp = {
+            v: analysisContext.v,
+            mode: analysisContext.mode,
+            user: analysisContext.user,
+            mtg: analysisContext.mtg,
+            problem: analysisContext.problem ? {
+                id: analysisContext.problem.id,
+                title: analysisContext.problem.title,
+                difficulty: analysisContext.problem.difficulty,
+                optimal_complexity: analysisContext.problem.optimal_complexity
+            } : undefined,
+            live_code: analysisContext.live_code ? {
+                language: analysisContext.live_code.language,
+                current_code: analysisContext.live_code.current_code,
+                line_count: analysisContext.live_code.line_count
+            } : undefined,
+            last_execution: analysisContext.last_execution ? {
+                tests_passed: analysisContext.last_execution.tests_passed,
+                tests_failed: analysisContext.last_execution.tests_failed,
+                total_tests: analysisContext.last_execution.total_tests
+            } : undefined,
+            session: analysisContext.session,
+            analysis_type: analysisContext.analysis_type,
+            candidate: analysisContext.candidate,
+            final_code: analysisContext.final_code,
+            all_problems_in_session: analysisContext.all_problems_in_session,
+            problems_attempted_list: analysisContext.problems_attempted_list,
+            problems_completed_ids: analysisContext.problems_completed_ids,
+            total_problems_attempted: analysisContext.total_problems_attempted,
+            total_problems_completed: analysisContext.total_problems_completed
+        };
+
         // Build request body - include custom summary_prompt if loaded
         const requestBody = {
             transcript: formattedTranscript,
-            dpp: analysisContext
+            dpp: leanDpp
         };
 
         // If custom summary prompt was loaded, send it to override API default
@@ -1167,35 +1200,19 @@ function showSessionSummary(summary, errorDetail = null) {
                             </div>
                             ${p.approach_used ? `<div class="problem-approach"><strong>Approach:</strong> ${escapeHtml(p.approach_used)}</div>` : ''}
 
-                            ${p.creativity_score != null ? `
+                            ${p.scores ? `
                             <div class="problem-eval-section">
                                 <div class="problem-eval-grid">
-                                    <div class="eval-item"><span class="eval-label">Creativity</span><span class="eval-score">${p.creativity_score}/5</span></div>
-                                    <div class="eval-item"><span class="eval-label">Logic</span><span class="eval-score">${p.logic_score}/5</span></div>
-                                    <div class="eval-item"><span class="eval-label">Code Quality</span><span class="eval-score">${p.code_quality_score}/5</span></div>
-                                    <div class="eval-item"><span class="eval-label">Explainability</span><span class="eval-score">${p.explainability_score}/5</span></div>
-                                    <div class="eval-item"><span class="eval-label">Complexity</span><span class="eval-score">${p.complexity_score}/5</span></div>
-                                    <div class="eval-item"><span class="eval-label">Scale</span><span class="eval-score">${p.scale_score}/5</span></div>
-                                </div>
-                                <div class="problem-eval-checks">
-                                    <span class="${p.walkthrough_provided ? 'check-pass' : 'check-fail'}">Walkthrough: ${p.walkthrough_provided ? 'Yes' : 'No'}</span>
-                                    <span class="${p.knew_time ? 'check-pass' : 'check-fail'}">Time Complexity: ${p.knew_time ? 'Correct' : 'No'}</span>
-                                    <span class="${p.knew_space ? 'check-pass' : 'check-fail'}">Space Complexity: ${p.knew_space ? 'Correct' : 'No'}</span>
-                                    <span class="${p.discussed_large_inputs ? 'check-pass' : 'check-fail'}">Scale Discussion: ${p.discussed_large_inputs ? 'Yes' : 'No'}</span>
+                                    <div class="eval-item"><span class="eval-label">Creativity</span><span class="eval-score">${p.scores.creativity}/5</span></div>
+                                    <div class="eval-item"><span class="eval-label">Logic</span><span class="eval-score">${p.scores.logic}/5</span></div>
+                                    <div class="eval-item"><span class="eval-label">Code Quality</span><span class="eval-score">${p.scores.code_quality}/5</span></div>
+                                    <div class="eval-item"><span class="eval-label">Explainability</span><span class="eval-score">${p.scores.explainability}/5</span></div>
+                                    <div class="eval-item"><span class="eval-label">Complexity</span><span class="eval-score">${p.scores.complexity}/5</span></div>
+                                    <div class="eval-item"><span class="eval-label">Scale</span><span class="eval-score">${p.scores.scale}/5</span></div>
                                 </div>
                                 ${p.eval_notes ? `<div class="problem-eval-notes"><div class="eval-note">${escapeHtml(p.eval_notes)}</div></div>` : ''}
                             </div>
                             ` : ''}
-
-                            ${p.key_strengths?.length ? `
-                            <div class="problem-strengths"><strong>Strengths:</strong>
-                                <ul>${p.key_strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>
-                            </div>` : ''}
-                            ${p.areas_to_improve?.length ? `
-                            <div class="problem-improvements"><strong>Areas to Improve:</strong>
-                                <ul>${p.areas_to_improve.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>
-                            </div>` : ''}
-                            ${p.key_feedback ? `<div class="problem-feedback"><strong>Summary:</strong> ${escapeHtml(p.key_feedback)}</div>` : ''}
                         </div>
                     </div>
                     `).join('')}
@@ -1216,18 +1233,6 @@ function showSessionSummary(summary, errorDetail = null) {
                 <div class="complexity-summary">
                     <span><strong>Time:</strong> ${escapeHtml(lastProblem.time_complexity || '?')}</span>
                     <span><strong>Space:</strong> ${escapeHtml(lastProblem.space_complexity || '?')}</span>
-                </div>
-                <div class="comprehension-grid" style="margin-top: 12px;">
-                    <div class="comprehension-item"><span class="label">Walkthrough:</span> <span class="${lastProblem.walkthrough_provided ? 'check-pass' : 'check-fail'}">${lastProblem.walkthrough_provided ? 'Yes' : 'No'}</span></div>
-                    <div class="comprehension-item"><span class="label">Clarity:</span> <span>${escapeHtml((lastProblem.walkthrough_clarity || '').replace(/_/g, ' '))}</span></div>
-                    <div class="comprehension-item"><span class="label">Knew Time:</span> <span class="${lastProblem.knew_time ? 'check-pass' : 'check-fail'}">${lastProblem.knew_time ? 'Correct' : 'No'}</span></div>
-                    <div class="comprehension-item"><span class="label">Knew Space:</span> <span class="${lastProblem.knew_space ? 'check-pass' : 'check-fail'}">${lastProblem.knew_space ? 'Correct' : 'No'}</span></div>
-                    <div class="comprehension-item"><span class="label">Explained Why:</span> <span class="${lastProblem.explained_why ? 'check-pass' : 'check-fail'}">${lastProblem.explained_why ? 'Yes' : 'No'}</span></div>
-                    <div class="comprehension-item"><span class="label">Scale Discussion:</span> <span class="${lastProblem.discussed_large_inputs ? 'check-pass' : 'check-fail'}">${lastProblem.discussed_large_inputs ? 'Yes' : 'No'}</span></div>
-                </div>
-                <div class="comprehension-grid" style="margin-top: 8px;">
-                    <div class="comprehension-item"><span class="label">Code Quality:</span> <span class="quality-${lastProblem.code_quality || ''}">${escapeHtml((lastProblem.code_quality || '').replace(/_/g, ' '))}</span></div>
-                    <div class="comprehension-item"><span class="label">Readability:</span> <span>${escapeHtml((lastProblem.readability || '').replace(/_/g, ' '))}</span></div>
                 </div>
             </div>
             ` : ''}
