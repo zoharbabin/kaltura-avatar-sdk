@@ -130,7 +130,8 @@ def lambda_handler(event, context):
     {
         "transcript": [{"role": "assistant"|"user", "content": "..."}],
         "dpp": { Dynamic Page Prompt object },
-        "schema": { Optional: JSON schema for validation context }
+        "schema": { Optional: JSON schema for validation context },
+        "summary_prompt": { Optional: Custom system prompt to override the default }
     }
 
     Returns:
@@ -160,6 +161,9 @@ def lambda_handler(event, context):
         dpp = body.get('dpp', {})
         schema = body.get('schema')
 
+        # Optional: custom summary prompt (overrides default SYSTEM_PROMPT)
+        custom_prompt = body.get('summary_prompt')
+
         if not transcript:
             return error_response('Missing required field: transcript', 'VALIDATION_ERROR')
 
@@ -167,10 +171,10 @@ def lambda_handler(event, context):
             return error_response('Missing required field: dpp', 'VALIDATION_ERROR')
 
         # Build the analysis prompt
-        user_prompt = build_analysis_prompt(transcript, dpp, schema)
+        user_prompt = build_analysis_prompt(transcript, dpp, schema, custom_prompt)
 
-        # Call Bedrock
-        summary, usage = call_bedrock(user_prompt)
+        # Call Bedrock with optional custom system prompt
+        summary, usage = call_bedrock(user_prompt, custom_prompt)
 
         return {
             'statusCode': 200,
@@ -193,9 +197,12 @@ def lambda_handler(event, context):
         return error_response(f'Analysis failed: {str(e)}', 'BEDROCK_ERROR', 500)
 
 
-def build_analysis_prompt(transcript: list, dpp: dict, schema: dict = None) -> str:
+def build_analysis_prompt(transcript: list, dpp: dict, schema: dict = None, custom_prompt: str = None) -> str:
     """
     Build the user prompt for the LLM.
+
+    If a custom_prompt is provided, we use simplified instructions since the
+    custom system prompt will contain the schema and detailed instructions.
     """
 
     # Format transcript
@@ -205,8 +212,8 @@ def build_analysis_prompt(transcript: list, dpp: dict, schema: dict = None) -> s
     turn_count = len([t for t in transcript if t.get('role') == 'user'])
 
     prompt_parts = [
-        "Analyze this HR call and produce a JSON summary.\n",
-        f"## Call Mode\n{dpp.get('mode', 'interview')}\n",
+        "Analyze this session and produce a JSON summary.\n",
+        f"## Session Mode\n{dpp.get('mode', 'interview')}\n",
         f"## Turn Count\n{turn_count} user turns\n",
         f"## Dynamic Page Prompt (DPP)\n```json\n{json.dumps(dpp, indent=2)}\n```\n",
         f"## Transcript\n{transcript_text}\n",
@@ -215,23 +222,33 @@ def build_analysis_prompt(transcript: list, dpp: dict, schema: dict = None) -> s
     if schema:
         prompt_parts.append(f"## Output Schema\n```json\n{json.dumps(schema, indent=2)}\n```\n")
 
-    prompt_parts.append(
-        "\n## Instructions\n"
-        "Produce a JSON summary following schema version 4.1. Include:\n"
-        "- ctx: extracted from DPP (org, role, role_id, person, subj_id)\n"
-        "- dpp_digest: key DPP fields (mins, focus, must, nice, cv_provided, role_id, subj_id)\n"
-        "- turns: count of user turns\n"
-        "- overview: 80-200 word summary\n"
-        "- key_answers: answers to critical questions (must-haves, STAR, etc.)\n"
-        "- fit: role fit assessment (only for interview mode)\n"
-        "- star_analysis: STAR methodology analysis (only for interview mode)\n"
-        "- believability: credibility assessment\n"
-        "- gaps: missing/unclear items\n"
-        "- cq: call quality signals (emo, tone, eng)\n"
-        "- risk: any risk flags\n"
-        "- next_steps: recommended actions\n\n"
-        "Output ONLY the JSON object, no other text."
-    )
+    # If custom prompt provided, use minimal instructions (schema is in system prompt)
+    if custom_prompt:
+        prompt_parts.append(
+            "\n## Instructions\n"
+            "Follow the schema and instructions in the system prompt exactly.\n"
+            "Analyze the transcript thoroughly and produce a complete JSON summary.\n"
+            "Output ONLY the JSON object, no other text."
+        )
+    else:
+        # Default instructions for backward compatibility
+        prompt_parts.append(
+            "\n## Instructions\n"
+            "Produce a JSON summary following schema version 4.1. Include:\n"
+            "- ctx: extracted from DPP (org, role, role_id, person, subj_id)\n"
+            "- dpp_digest: key DPP fields (mins, focus, must, nice, cv_provided, role_id, subj_id)\n"
+            "- turns: count of user turns\n"
+            "- overview: 80-200 word summary\n"
+            "- key_answers: answers to critical questions (must-haves, STAR, etc.)\n"
+            "- fit: role fit assessment (only for interview mode)\n"
+            "- star_analysis: STAR methodology analysis (only for interview mode)\n"
+            "- believability: credibility assessment\n"
+            "- gaps: missing/unclear items\n"
+            "- cq: call quality signals (emo, tone, eng)\n"
+            "- risk: any risk flags\n"
+            "- next_steps: recommended actions\n\n"
+            "Output ONLY the JSON object, no other text."
+        )
 
     return '\n'.join(prompt_parts)
 
@@ -249,19 +266,26 @@ def format_transcript(transcript: list) -> str:
     return '\n'.join(lines)
 
 
-def call_bedrock(user_prompt: str) -> tuple:
+def call_bedrock(user_prompt: str, custom_system_prompt: str = None) -> tuple:
     """
     Call Bedrock with the analysis prompt.
+
+    Args:
+        user_prompt: The user prompt containing transcript and DPP
+        custom_system_prompt: Optional custom system prompt to override default
 
     Returns:
         tuple: (summary_dict, usage_dict)
     """
 
+    # Use custom system prompt if provided, otherwise use default
+    system_prompt = custom_system_prompt if custom_system_prompt else SYSTEM_PROMPT
+
     request_body = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": MAX_TOKENS,
         "temperature": TEMPERATURE,
-        "system": SYSTEM_PROMPT,
+        "system": system_prompt,
         "messages": [
             {"role": "user", "content": user_prompt}
         ]

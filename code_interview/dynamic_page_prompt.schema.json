@@ -268,7 +268,7 @@
         "full_name": "Alex Johnson",
         "email": "alex.johnson@example.com"
       },
-      "mtg": { "mins": 5 },
+      "mtg": { "mins": 10 },
       "problem": {
         "id": "two-sum",
         "title": "Two Sum",

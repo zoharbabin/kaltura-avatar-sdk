@@ -17,7 +17,7 @@ const CONFIG = Object.freeze({
     FLOW_ID: 'agent-16',
 
     // Call analysis API endpoint (same as HR demo)
-    ANALYSIS_API_URL: 'https://itv5rhcn37.execute-api.us-west-2.amazonaws.com',
+    ANALYSIS_API_URL: 'https://d0ppsbn75h.execute-api.us-west-2.amazonaws.com',
 
     // Summary prompt file path (loaded at runtime)
     SUMMARY_PROMPT_PATH: 'summary_prompt.txt',
@@ -293,6 +293,9 @@ const state = {
 
     // Custom summary prompt (loaded from file)
     summaryPrompt: null,
+
+    // Session end guard (prevents duplicate end handling)
+    isEndingSession: false,
 
     /**
      * Build the complete DPP object for injection.
@@ -879,20 +882,18 @@ function simulateFizzBuzz(code, language, testCases) {
  * Handle session end - called by SDK event or trigger phrase detection.
  * Prevents duplicate processing if already ending.
  */
-let isEndingSession = false;
-
 async function handleSessionEnd() {
     // Prevent duplicate calls
-    if (isEndingSession || state.currentScreen === 'end') {
+    if (state.isEndingSession || state.currentScreen === 'end') {
         console.log('Session end already in progress, ignoring');
         return;
     }
-    isEndingSession = true;
+    state.isEndingSession = true;
 
     console.log('Handling session end...');
 
     if (!state.sdk) {
-        isEndingSession = false;
+        state.isEndingSession = false;
         return;
     }
 
@@ -928,23 +929,18 @@ async function handleSessionEnd() {
         ui.downloadReportBtn.style.display = 'none';
     }
 
-    // Now stop the SDK (this stops the avatar audio)
+    // Stop the avatar: end() removes the iframe and stops all audio
     try {
-        await state.sdk.stop();
-        console.log('SDK stopped successfully');
+        state.sdk.end();
+        console.log('SDK ended successfully');
     } catch (e) {
-        console.log('SDK stop error:', e.message);
+        console.log('SDK end error:', e.message);
     }
 
     // Analyze with the transcript we captured earlier
     await analyzeSessionWithData(transcript, dpp);
 
-    isEndingSession = false;
-}
-
-// Legacy function name for backward compatibility
-async function endSession() {
-    await handleSessionEnd();
+    state.isEndingSession = false;
 }
 
 async function analyzeSessionWithData(transcript, dpp) {
@@ -1022,6 +1018,12 @@ async function analyzeSessionWithData(transcript, dpp) {
             body: JSON.stringify(requestBody)
         });
 
+        if (!response.ok) {
+            console.error(`Analysis API returned ${response.status}: ${response.statusText}`);
+            showSessionSummary(null, `API error: ${response.status} ${response.statusText}`);
+            return;
+        }
+
         const result = await response.json();
 
         if (result.success) {
@@ -1030,15 +1032,19 @@ async function analyzeSessionWithData(transcript, dpp) {
             showSessionSummary(result.summary);
         } else {
             console.error('Analysis failed:', result.error);
-            showSessionSummary(null);
+            showSessionSummary(null, result.error);
         }
     } catch (error) {
         console.error('Failed to analyze session:', error);
-        showSessionSummary(null);
+        const isCors = error.message?.includes('Failed to fetch');
+        const detail = isCors
+            ? 'CORS error — the analysis API is not reachable from this origin. Redeploy the Lambda with CORS enabled, or serve from the allowed origin.'
+            : error.message;
+        showSessionSummary(null, detail);
     }
 }
 
-function showSessionSummary(summary) {
+function showSessionSummary(summary, errorDetail = null) {
     // Show download button
     if (ui.downloadReportBtn) {
         ui.downloadReportBtn.style.display = summary ? 'inline-flex' : 'none';
@@ -1049,6 +1055,7 @@ function showSessionSummary(summary) {
             ui.reportContent.innerHTML = `
                 <div class="report-empty">
                     <p>Session ended. Analysis not available.</p>
+                    ${errorDetail ? `<p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">${escapeHtml(errorDetail)}</p>` : ''}
                 </div>
             `;
         }
@@ -1735,7 +1742,7 @@ function checkForProblemSwitchTrigger(text) {
     if (lowerText.includes('ending the session now')) {
         console.log('[Avatar] End session trigger detected');
         setTimeout(() => {
-            endSession();
+            handleSessionEnd();
         }, 2000);
     }
 }
@@ -1986,7 +1993,10 @@ function resetFullState() {
     // Reset user
     state.user = { firstName: '', lastName: '', email: '' };
 
-    // Reset SDK
+    // Destroy previous SDK instance (cleanup listeners, remove iframe)
+    if (state.sdk) {
+        try { state.sdk.destroy(); } catch (e) { /* ignore */ }
+    }
     state.sdk = null;
 
     // Reset problem tracking
@@ -2018,6 +2028,9 @@ function resetFullState() {
 
     // Reset analysis
     state.lastSessionSummary = null;
+
+    // Reset session end guard
+    state.isEndingSession = false;
 
     // Reset editor content if exists
     if (state.editor) {

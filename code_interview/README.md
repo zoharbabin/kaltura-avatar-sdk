@@ -132,7 +132,7 @@ Add to the `PROBLEMS` object in `code-interview.js`:
 }
 ```
 
-Then add the ID to `PROBLEM_ORDER` array and update `base_prompt.txt` with problem knowledge.
+Then add the ID to the `PROBLEM_ORDER` array. Problem details are passed dynamically to the avatar via DPP, so no prompt file updates are needed.
 
 ## Configuration
 
@@ -179,10 +179,11 @@ When the session ends, the system:
 
 ## Version
 
-Current: v1.5.0
+Current: v1.5.4
 
 ### Changelog
 
+- **v1.5.4**: Fixed session-end race condition (transcript captured before SDK stop), SDK end-call button triggers end screen, 10-minute default session, problems passed dynamically via DPP (removed hardcoded solutions from base prompt), avatar patience improvements (no rephrasing/summarizing)
 - **v1.5.0**: Three-screen flow (Opening → Interview → End), user registration with validation, personalized avatar interaction using candidate name, inline report display (replaces modal), restart functionality
 - **v1.4.0**: Custom summary prompt support, comprehensive analysis modal, simplified DPP fields
 - **v1.3.0**: Avatar-controlled problem switching and session ending via trigger phrases

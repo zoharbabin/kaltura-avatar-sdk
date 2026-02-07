@@ -769,68 +769,8 @@ header {
 }
 
 /* =============================================================================
-   SUMMARY MODAL
+   REPORT SECTIONS
    ============================================================================= */
-
-.summary-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.summary-modal-content {
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    max-width: 700px;
-    width: 100%;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-
-.summary-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
-}
-
-.summary-header h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.summary-close-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-}
-
-.summary-close-btn:hover {
-    color: var(--text-primary);
-}
-
-.summary-body {
-    padding: 24px;
-    overflow-y: auto;
-    flex: 1;
-}
 
 .summary-section {
     margin-bottom: 24px;
@@ -1139,15 +1079,6 @@ header {
     text-transform: capitalize;
 }
 
-/* Modal Footer */
-.summary-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-}
-
 .btn-primary {
     background: var(--accent);
     color: white;
@@ -1180,10 +1111,6 @@ header {
     .avatar-panel {
         border-right: none;
         border-bottom: 1px solid var(--border);
-    }
-
-    .summary-modal-content {
-        max-height: 90vh;
     }
 
     .skill-dims {
