@@ -726,15 +726,6 @@ header {
    END SESSION BUTTON
    ============================================================================= */
 
-.btn-next {
-    background: var(--accent);
-    color: white;
-}
-
-.btn-next:hover {
-    background: var(--accent-hover);
-}
-
 .btn-end {
     background: var(--error);
     color: white;

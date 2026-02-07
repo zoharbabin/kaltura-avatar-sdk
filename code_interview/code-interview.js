@@ -509,7 +509,6 @@ function initUI() {
         languageSelect: document.getElementById('language-select'),
         runBtn: document.getElementById('run-btn'),
         resetBtn: document.getElementById('reset-btn'),
-        nextProblemBtn: document.getElementById('next-problem-btn'),
         outputContent: document.getElementById('output-content'),
         testResults: document.getElementById('test-results'),
         debugDpp: document.getElementById('debug-dpp'),
@@ -720,10 +719,6 @@ function runCode() {
                     ? 'test-results pass'
                     : 'test-results fail';
 
-                // Show next problem button if all tests pass
-                if (result.passed === result.total) {
-                    showNextProblemButton();
-                }
             }
 
             injectDPP('code_run');
@@ -1660,11 +1655,6 @@ function switchToNextProblem() {
     updateProblemUI();
     resetOutputState();
 
-    // Hide next problem button
-    if (ui.nextProblemBtn) {
-        ui.nextProblemBtn.style.display = 'none';
-    }
-
     // Inject updated DPP
     injectDPP('problem_switch');
 
@@ -1698,23 +1688,6 @@ Output: ${escapeHtml(example.output)}
 Explanation: ${escapeHtml(example.explanation)}</pre>
             </div>
         `;
-    }
-}
-
-/**
- * Show the "Next Problem" button when problem is completed.
- * NOTE: Button is hidden by default - avatar controls problem switching automatically.
- * Button only appears as a manual fallback after avatar suggests moving on.
- */
-function showNextProblemButton() {
-    // Avatar-controlled switching is primary - button is a manual fallback only
-    // The button will be shown if needed, but avatar speech triggers automatic switch
-    if (!ui.nextProblemBtn) return;
-
-    const hasNext = state.currentProblemIndex + 1 < PROBLEM_ORDER.length;
-    if (hasNext && state.problemCompleted) {
-        // Show as fallback option (avatar speech is primary trigger)
-        ui.nextProblemBtn.style.display = 'inline-flex';
     }
 }
 
@@ -1771,7 +1744,6 @@ function attachEventListeners() {
     // Interview controls
     ui.runBtn?.addEventListener('click', runCode);
     ui.resetBtn?.addEventListener('click', resetCode);
-    ui.nextProblemBtn?.addEventListener('click', switchToNextProblem);
     ui.languageSelect?.addEventListener('change', (e) => {
         onLanguageChange(e.target.value);
     });
@@ -2045,10 +2017,6 @@ function resetFullState() {
     if (ui.testResults) {
         ui.testResults.textContent = '';
     }
-    if (ui.nextProblemBtn) {
-        ui.nextProblemBtn.style.display = 'none';
-    }
-
     // Reset problem UI
     updateProblemUI();
 
