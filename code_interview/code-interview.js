@@ -1107,6 +1107,8 @@ function showSessionSummary(summary, errorDetail = null) {
     const fitScore = summary.fit?.score_0_100;
     const fitClass = fitScore >= 70 ? 'good' : fitScore >= 50 ? 'ok' : 'poor';
     const rec = summary.fit?.rec || 'N/A';
+    // Resolve solution analysis: prefer dedicated section, fall back to last problem attempted
+    const solAnalysis = summary.solution_analysis || (summary.problems_attempted?.length ? summary.problems_attempted[summary.problems_attempted.length - 1] : null);
 
     if (!ui.reportContent) return;
 
@@ -1253,12 +1255,14 @@ function showSessionSummary(summary, errorDetail = null) {
                                         </div>
 
                                         <div class="problem-eval-notes">
-                                            ${(p.creativity_notes || p.evaluation?.creativity?.notes) ? `<div class="eval-note"><strong>Creativity:</strong> ${escapeHtml(p.creativity_notes || p.evaluation?.creativity?.notes || '')}</div>` : ''}
-                                            ${(p.logic_notes || p.evaluation?.logic_soundness?.notes) ? `<div class="eval-note"><strong>Logic:</strong> ${escapeHtml(p.logic_notes || p.evaluation?.logic_soundness?.notes || '')}</div>` : ''}
-                                            ${(p.code_quality_notes || p.evaluation?.code_quality?.notes) ? `<div class="eval-note"><strong>Code Quality:</strong> ${escapeHtml(p.code_quality_notes || p.evaluation?.code_quality?.notes || '')}</div>` : ''}
-                                            ${(p.explainability_notes || p.evaluation?.explainability?.notes) ? `<div class="eval-note"><strong>Explainability:</strong> ${escapeHtml(p.explainability_notes || p.evaluation?.explainability?.notes || '')}</div>` : ''}
-                                            ${(p.complexity_notes || p.evaluation?.complexity_understanding?.notes) ? `<div class="eval-note"><strong>Complexity:</strong> ${escapeHtml(p.complexity_notes || p.evaluation?.complexity_understanding?.notes || '')}</div>` : ''}
-                                            ${(p.scale_notes || p.evaluation?.scale_awareness?.notes) ? `<div class="eval-note"><strong>Scale:</strong> ${escapeHtml(p.scale_notes || p.evaluation?.scale_awareness?.notes || '')}</div>` : ''}
+                                            ${p.eval_notes ? `<div class="eval-note">${escapeHtml(p.eval_notes)}</div>` : ''}
+                                            ${(!p.eval_notes && p.creativity_notes) ? `<div class="eval-note"><strong>Creativity:</strong> ${escapeHtml(p.creativity_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.logic_notes) ? `<div class="eval-note"><strong>Logic:</strong> ${escapeHtml(p.logic_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.code_quality_notes) ? `<div class="eval-note"><strong>Code Quality:</strong> ${escapeHtml(p.code_quality_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.explainability_notes) ? `<div class="eval-note"><strong>Explainability:</strong> ${escapeHtml(p.explainability_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.complexity_notes) ? `<div class="eval-note"><strong>Complexity:</strong> ${escapeHtml(p.complexity_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.scale_notes) ? `<div class="eval-note"><strong>Scale:</strong> ${escapeHtml(p.scale_notes || '')}</div>` : ''}
+                                            ${(!p.eval_notes && p.evaluation?.creativity?.notes) ? `<div class="eval-note"><strong>Creativity:</strong> ${escapeHtml(p.evaluation.creativity.notes)}</div>` : ''}
                                         </div>
                                     </div>
                                     ` : ''}
@@ -1283,101 +1287,80 @@ function showSessionSummary(summary, errorDetail = null) {
                 </div>
                 ` : ''}
 
-                ${summary.solution_analysis ? `
+                ${solAnalysis ? `
                 <div class="summary-section">
                     <h4>Solution Analysis</h4>
                     <div class="solution-overview">
-                        <span class="solution-badge ${summary.solution_analysis.solved ? 'solved' : 'unsolved'}">${summary.solution_analysis.solved ? 'Solved' : 'Not Solved'}</span>
-                        ${summary.solution_analysis.optimal ? '<span class="solution-badge optimal">Optimal</span>' : ''}
-                        <span class="solution-badge approach">${escapeHtml((summary.solution_analysis.approach || '').replace(/_/g, ' '))}</span>
+                        <span class="solution-badge ${(solAnalysis.solved ?? (solAnalysis.outcome === 'solved')) ? 'solved' : 'unsolved'}">${(solAnalysis.solved ?? (solAnalysis.outcome === 'solved')) ? 'Solved' : 'Not Solved'}</span>
+                        ${solAnalysis.optimal ? '<span class="solution-badge optimal">Optimal</span>' : ''}
+                        <span class="solution-badge approach">${escapeHtml(((solAnalysis.approach || '').replace(/_/g, ' ')))}</span>
                     </div>
-                    ${summary.solution_analysis.approach_description ? `<p class="approach-desc">${escapeHtml(summary.solution_analysis.approach_description)}</p>` : ''}
+                    ${(solAnalysis.approach_description || solAnalysis.approach_used) ? `<p class="approach-desc">${escapeHtml(solAnalysis.approach_description || solAnalysis.approach_used || '')}</p>` : ''}
                     <div class="complexity-summary">
-                        <span><strong>Time:</strong> ${escapeHtml(summary.solution_analysis.time_complexity || '?')}</span>
-                        <span><strong>Space:</strong> ${escapeHtml(summary.solution_analysis.space_complexity || '?')}</span>
+                        <span><strong>Time:</strong> ${escapeHtml(solAnalysis.time_complexity || '?')}</span>
+                        <span><strong>Space:</strong> ${escapeHtml(solAnalysis.space_complexity || '?')}</span>
                     </div>
                 </div>
                 ` : ''}
 
-                ${(summary.solution_analysis?.walkthrough_provided != null || summary.solution_analysis?.walkthrough_quality) ? `
+                ${(solAnalysis?.walkthrough_provided != null || solAnalysis?.walkthrough_quality) ? `
                 <div class="summary-section">
                     <h4>Code Explanation & Comprehension</h4>
                     <div class="comprehension-grid">
                         <div class="comprehension-item">
                             <span class="label">Walkthrough Provided:</span>
-                            <span class="${(summary.solution_analysis.walkthrough_provided ?? summary.solution_analysis.walkthrough_quality?.provided_walkthrough) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.walkthrough_provided ?? summary.solution_analysis.walkthrough_quality?.provided_walkthrough) ? 'Yes' : 'No'}</span>
+                            <span class="${(solAnalysis.walkthrough_provided ?? solAnalysis.walkthrough_quality?.provided_walkthrough) ? 'check-pass' : 'check-fail'}">${(solAnalysis.walkthrough_provided ?? solAnalysis.walkthrough_quality?.provided_walkthrough) ? 'Yes' : 'No'}</span>
                         </div>
                         <div class="comprehension-item">
                             <span class="label">Clarity:</span>
-                            <span>${escapeHtml(((summary.solution_analysis.walkthrough_clarity || summary.solution_analysis.walkthrough_quality?.clarity || '').replace(/_/g, ' ')))}</span>
-                        </div>
-                        <div class="comprehension-item">
-                            <span class="label">Covered Key Logic:</span>
-                            <span class="${(summary.solution_analysis.covered_key_logic ?? summary.solution_analysis.walkthrough_quality?.covered_key_logic) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.covered_key_logic ?? summary.solution_analysis.walkthrough_quality?.covered_key_logic) ? 'Yes' : 'No'}</span>
-                        </div>
-                        <div class="comprehension-item">
-                            <span class="label">Discussed Edge Cases:</span>
-                            <span class="${(summary.solution_analysis.mentioned_edge_cases ?? summary.solution_analysis.walkthrough_quality?.mentioned_edge_cases) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.mentioned_edge_cases ?? summary.solution_analysis.walkthrough_quality?.mentioned_edge_cases) ? 'Yes' : 'No'}</span>
+                            <span>${escapeHtml(((solAnalysis.walkthrough_clarity || solAnalysis.walkthrough_quality?.clarity || '').replace(/_/g, ' ')))}</span>
                         </div>
                     </div>
-                    ${(summary.solution_analysis.walkthrough_notes || summary.solution_analysis.walkthrough_quality?.notes) ? `<p class="comprehension-notes">${escapeHtml(summary.solution_analysis.walkthrough_notes || summary.solution_analysis.walkthrough_quality?.notes || '')}</p>` : ''}
+                    ${(solAnalysis.walkthrough_notes || solAnalysis.walkthrough_quality?.notes) ? `<p class="comprehension-notes">${escapeHtml(solAnalysis.walkthrough_notes || solAnalysis.walkthrough_quality?.notes || '')}</p>` : ''}
                 </div>
                 ` : ''}
 
-                ${(summary.solution_analysis?.knew_time_complexity != null || summary.solution_analysis?.complexity_understanding) ? `
+                ${(solAnalysis?.knew_time != null || solAnalysis?.knew_time_complexity != null || solAnalysis?.complexity_understanding) ? `
                 <div class="summary-section">
                     <h4>Complexity & Scale Understanding</h4>
                     <div class="comprehension-grid">
                         <div class="comprehension-item">
                             <span class="label">Time Complexity:</span>
-                            <span class="${(summary.solution_analysis.knew_time_complexity ?? summary.solution_analysis.complexity_understanding?.identified_time_complexity) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.knew_time_complexity ?? summary.solution_analysis.complexity_understanding?.identified_time_complexity) ? 'Correct' : 'Incorrect/Missing'}</span>
+                            <span class="${(solAnalysis.knew_time ?? solAnalysis.knew_time_complexity ?? solAnalysis.complexity_understanding?.identified_time_complexity) ? 'check-pass' : 'check-fail'}">${(solAnalysis.knew_time ?? solAnalysis.knew_time_complexity ?? solAnalysis.complexity_understanding?.identified_time_complexity) ? 'Correct' : 'Incorrect/Missing'}</span>
                         </div>
                         <div class="comprehension-item">
                             <span class="label">Space Complexity:</span>
-                            <span class="${(summary.solution_analysis.knew_space_complexity ?? summary.solution_analysis.complexity_understanding?.identified_space_complexity) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.knew_space_complexity ?? summary.solution_analysis.complexity_understanding?.identified_space_complexity) ? 'Correct' : 'Incorrect/Missing'}</span>
+                            <span class="${(solAnalysis.knew_space ?? solAnalysis.knew_space_complexity ?? solAnalysis.complexity_understanding?.identified_space_complexity) ? 'check-pass' : 'check-fail'}">${(solAnalysis.knew_space ?? solAnalysis.knew_space_complexity ?? solAnalysis.complexity_understanding?.identified_space_complexity) ? 'Correct' : 'Incorrect/Missing'}</span>
                         </div>
                         <div class="comprehension-item">
-                            <span class="label">Explained Reasoning:</span>
-                            <span class="${(summary.solution_analysis.explained_complexity_reasoning ?? summary.solution_analysis.complexity_understanding?.explained_reasoning) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.explained_complexity_reasoning ?? summary.solution_analysis.complexity_understanding?.explained_reasoning) ? 'Yes' : 'No'}</span>
+                            <span class="label">Explained Why:</span>
+                            <span class="${(solAnalysis.explained_why ?? solAnalysis.explained_complexity_reasoning ?? solAnalysis.complexity_understanding?.explained_reasoning) ? 'check-pass' : 'check-fail'}">${(solAnalysis.explained_why ?? solAnalysis.explained_complexity_reasoning ?? solAnalysis.complexity_understanding?.explained_reasoning) ? 'Yes' : 'No'}</span>
                         </div>
                         <div class="comprehension-item">
-                            <span class="label">Understood Tradeoffs:</span>
-                            <span class="${(summary.solution_analysis.understood_tradeoffs ?? summary.solution_analysis.complexity_understanding?.understood_tradeoffs) ? 'check-pass' : 'check-fail'}">${(summary.solution_analysis.understood_tradeoffs ?? summary.solution_analysis.complexity_understanding?.understood_tradeoffs) ? 'Yes' : 'No'}</span>
-                        </div>
-                        <div class="comprehension-item">
-                            <span class="label">Scale Awareness:</span>
-                            <span>${escapeHtml(((summary.solution_analysis.scale_awareness || summary.solution_analysis.complexity_understanding?.scale_awareness || '').replace(/_/g, ' ')))}</span>
+                            <span class="label">Scale Discussion:</span>
+                            <span class="${(solAnalysis.discussed_large_inputs ?? solAnalysis.complexity_understanding?.understood_tradeoffs) ? 'check-pass' : 'check-fail'}">${(solAnalysis.discussed_large_inputs ?? solAnalysis.complexity_understanding?.understood_tradeoffs) ? 'Yes' : 'No'}</span>
                         </div>
                     </div>
-                    ${(summary.solution_analysis.complexity_notes || summary.solution_analysis.complexity_understanding?.notes) ? `<p class="comprehension-notes">${escapeHtml(summary.solution_analysis.complexity_notes || summary.solution_analysis.complexity_understanding?.notes || '')}</p>` : ''}
                 </div>
                 ` : ''}
 
-                ${(summary.solution_analysis?.code_quality) ? `
+                ${(solAnalysis?.code_quality) ? `
                 <div class="summary-section">
                     <h4>Code Quality Assessment</h4>
                     <div class="comprehension-grid">
                         <div class="comprehension-item">
                             <span class="label">Overall:</span>
-                            <span class="quality-${(typeof summary.solution_analysis.code_quality === 'string' ? summary.solution_analysis.code_quality : summary.solution_analysis.code_quality?.overall) || ''}">${escapeHtml(((typeof summary.solution_analysis.code_quality === 'string' ? summary.solution_analysis.code_quality : summary.solution_analysis.code_quality?.overall) || '').replace(/_/g, ' '))}</span>
-                        </div>
-                        <div class="comprehension-item">
-                            <span class="label">Organization:</span>
-                            <span>${escapeHtml(((summary.solution_analysis.code_organization || summary.solution_analysis.code_quality?.organization || '').replace(/_/g, ' ')))}</span>
-                        </div>
-                        <div class="comprehension-item">
-                            <span class="label">Naming:</span>
-                            <span>${escapeHtml(((summary.solution_analysis.naming || summary.solution_analysis.code_quality?.naming || '').replace(/_/g, ' ')))}</span>
+                            <span class="quality-${(typeof solAnalysis.code_quality === 'string' ? solAnalysis.code_quality : solAnalysis.code_quality?.overall) || ''}">${escapeHtml(((typeof solAnalysis.code_quality === 'string' ? solAnalysis.code_quality : solAnalysis.code_quality?.overall) || '').replace(/_/g, ' '))}</span>
                         </div>
                         <div class="comprehension-item">
                             <span class="label">Readability:</span>
-                            <span>${escapeHtml(((summary.solution_analysis.readability || summary.solution_analysis.code_quality?.readability || '').replace(/_/g, ' ')))}</span>
+                            <span>${escapeHtml(((solAnalysis.readability || solAnalysis.code_quality?.readability || '').replace(/_/g, ' ')))}</span>
                         </div>
                     </div>
-                    ${summary.solution_analysis.code_observations?.length ? `
+                    ${solAnalysis.code_observations?.length ? `
                     <div class="code-observations">
                         <strong>Code Observations:</strong>
-                        <ul>${summary.solution_analysis.code_observations.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
+                        <ul>${solAnalysis.code_observations.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
                     </div>
                     ` : ''}
                 </div>
@@ -1420,15 +1403,15 @@ function showSessionSummary(summary, errorDetail = null) {
                             const sa = summary.skill_assessment;
                             // Support both flat (score + evidence as separate keys) and nested ({score_1_5, evidence}) formats
                             const dims = [
-                                {name: 'Problem Solving', score: sa.problem_solving, evidence: sa.problem_solving_evidence},
-                                {name: 'Code Fluency', score: sa.code_fluency, evidence: sa.code_fluency_evidence},
-                                {name: 'Communication', score: sa.communication, evidence: sa.communication_evidence},
-                                {name: 'Efficiency Awareness', score: sa.efficiency_awareness, evidence: sa.efficiency_awareness_evidence}
+                                {name: 'Problem Solving', score: sa.problem_solving, evidence: sa.problem_solving_evidence || sa.problem_solving_e},
+                                {name: 'Code Fluency', score: sa.code_fluency, evidence: sa.code_fluency_evidence || sa.code_fluency_e},
+                                {name: 'Communication', score: sa.communication, evidence: sa.communication_evidence || sa.communication_e},
+                                {name: 'Efficiency Awareness', score: sa.efficiency_awareness, evidence: sa.efficiency_awareness_evidence || sa.efficiency_awareness_e}
                             ];
                             // If scores are objects (old nested format), extract from them
                             return dims.map(d => {
                                 const score = typeof d.score === 'object' ? d.score?.score_1_5 : d.score;
-                                const evidence = d.evidence || (typeof d.score === 'object' ? d.score?.evidence : '');
+                                const evidence = d.evidence || d.evidence_e || (typeof d.score === 'object' ? d.score?.evidence : '');
                                 return `<div class="skill-item">
                                     <div class="skill-header">
                                         <span class="skill-name">${d.name}</span>
@@ -1450,10 +1433,10 @@ function showSessionSummary(summary, errorDetail = null) {
                         ${(() => {
                             const pa = summary.potential_assessment;
                             const dims = [
-                                {name: 'Creativity', score: pa.creativity_score ?? pa.creativity?.score_1_5, analysis: pa.creativity_analysis ?? pa.creativity?.analysis},
-                                {name: 'Tenacity', score: pa.tenacity_score ?? pa.tenacity?.score_1_5, analysis: pa.tenacity_analysis ?? pa.tenacity?.analysis},
-                                {name: 'Aptitude', score: pa.aptitude_score ?? pa.aptitude?.score_1_5, analysis: pa.aptitude_analysis ?? pa.aptitude?.analysis},
-                                {name: 'Propensity', score: pa.propensity_score ?? pa.propensity?.score_1_5, analysis: pa.propensity_analysis ?? pa.propensity?.analysis}
+                                {name: 'Creativity', score: pa.creativity_score ?? pa.creativity?.score_1_5, analysis: pa.creativity_analysis || pa.creativity_a || pa.creativity?.analysis},
+                                {name: 'Tenacity', score: pa.tenacity_score ?? pa.tenacity?.score_1_5, analysis: pa.tenacity_analysis || pa.tenacity_a || pa.tenacity?.analysis},
+                                {name: 'Aptitude', score: pa.aptitude_score ?? pa.aptitude?.score_1_5, analysis: pa.aptitude_analysis || pa.aptitude_a || pa.aptitude?.analysis},
+                                {name: 'Propensity', score: pa.propensity_score ?? pa.propensity?.score_1_5, analysis: pa.propensity_analysis || pa.propensity_a || pa.propensity?.analysis}
                             ];
                             return dims.map(d => `
                                 <div class="potential-dim">

@@ -1,28 +1,26 @@
-DPP = Dynamic Page Prompt. Output ONE valid JSON object matching the schema below. No markdown, no commentary, no backticks.
+DPP = Dynamic Page Prompt. Output ONE valid JSON matching the schema. No markdown, no backticks. Be CONCISE — short sentences, no filler.
 
 RULES:
-1. Use ONLY the transcript + DPP (including live_code, last_execution) as evidence.
-2. Copy IDs exactly from DPP (problem_id from DPP.problem.id, subj_id from DPP.subj.id, etc). Use "" if missing.
-3. MUST include an entry in problems_attempted for EVERY problem worked on.
-4. All scores/notes must reference specific transcript evidence. No generic fillers.
-5. Evaluate POTENTIAL separately from outcome — a failing candidate with great thinking should score high on potential.
-6. overview: 150-300 words starting with "Completed X of Y problems."
-7. fit.score_0_100 weighs skill(60%) + potential(40%). High-potential with incomplete solution can score 65-75.
+1. Use ONLY transcript + DPP as evidence. Copy IDs from DPP exactly, "" if missing.
+2. MUST include problems_attempted entry for EVERY problem worked on.
+3. Evaluate POTENTIAL separately from outcome.
+4. fit.score_0_100 = skill(60%) + potential(40%).
+5. All string values: 1 sentence max unless noted.
 
 SCHEMA:
 {"type":"object","additionalProperties":false,"properties":{
 "v":{"type":"string","enum":["1.4"]},
 "mode":{"type":"string","enum":["coding_challenge","code_review","technical_mentoring"]},
 "ctx":{"type":"object","additionalProperties":false,"properties":{
-  "org":{"type":"string","description":"DPP.org.n or ''"},
-  "problem_id":{"type":"string","description":"DPP.problem.id or ''"},
-  "problem_title":{"type":"string","description":"DPP.problem.title or ''"},
+  "org":{"type":"string"},
+  "problem_id":{"type":"string"},
+  "problem_title":{"type":"string"},
   "difficulty":{"type":"string","enum":["easy","medium","hard",""]},
-  "language":{"type":"string","description":"DPP.live_code.language or ''"},
-  "person":{"type":"string","description":"DPP.subj.name or ''"},
-  "subj_id":{"type":"string","description":"DPP.subj.id or ''"}},
+  "language":{"type":"string"},
+  "person":{"type":"string"},
+  "subj_id":{"type":"string"}},
   "required":["org","problem_id","problem_title","difficulty","language","person","subj_id"]},
-"session_stats":{"type":"object","additionalProperties":false,"description":"From DPP: elapsed_minutes=session.elapsed_minutes, target_minutes=mtg.mins, times_code_run=session.times_code_was_run, hints_given=session.hints_given, tests from last_execution (0 if null), problems_completed=count solved, problems_total=session.total_problems","properties":{
+"session_stats":{"type":"object","additionalProperties":false,"description":"elapsed_minutes=DPP.session.elapsed_minutes, target_minutes=DPP.mtg.mins, times_code_run=DPP.session.times_code_was_run, hints_given=DPP.session.hints_given, tests=DPP.last_execution(0 if null), problems_completed=count solved, problems_total=DPP.session.total_problems","properties":{
   "elapsed_minutes":{"type":"integer","minimum":0},
   "target_minutes":{"type":"integer","minimum":0},
   "times_code_run":{"type":"integer","minimum":0},
@@ -32,31 +30,7 @@ SCHEMA:
   "problems_completed":{"type":"integer","minimum":0},
   "problems_total":{"type":"integer","minimum":0}},
   "required":["elapsed_minutes","target_minutes","times_code_run","hints_given","tests_passed","tests_total","problems_completed","problems_total"]},
-"solution_analysis":{"type":"object","additionalProperties":false,"description":"solved=true only if tests_passed==tests_total>0. optimal=true if matches DPP.problem.optimal_complexity.","properties":{
-  "solved":{"type":"boolean"},
-  "approach":{"type":"string","enum":["brute_force","hash_map","two_pointer","sorting","dynamic_programming","recursion","greedy","other","incomplete"]},
-  "approach_description":{"type":"string"},
-  "time_complexity":{"type":"string"},
-  "space_complexity":{"type":"string"},
-  "optimal":{"type":"boolean"},
-  "code_quality":{"type":"string","enum":["excellent","good","adequate","poor","incomplete"]},
-  "code_organization":{"type":"string","enum":["well_structured","adequate","disorganized","not_applicable"]},
-  "naming":{"type":"string","enum":["clear","adequate","unclear","not_applicable"]},
-  "readability":{"type":"string","enum":["highly_readable","readable","hard_to_follow","not_applicable"]},
-  "walkthrough_provided":{"type":"boolean"},
-  "walkthrough_clarity":{"type":"string","enum":["excellent","good","adequate","poor","not_provided"]},
-  "covered_key_logic":{"type":"boolean"},
-  "mentioned_edge_cases":{"type":"boolean"},
-  "walkthrough_notes":{"type":"string"},
-  "knew_time_complexity":{"type":"boolean"},
-  "knew_space_complexity":{"type":"boolean"},
-  "explained_complexity_reasoning":{"type":"boolean"},
-  "understood_tradeoffs":{"type":"boolean"},
-  "scale_awareness":{"type":"string","enum":["strong","moderate","weak","not_assessed"]},
-  "complexity_notes":{"type":"string"},
-  "code_observations":{"type":"array","items":{"type":"string"},"maxItems":5}},
-  "required":["solved","approach","approach_description","time_complexity","space_complexity","optimal","code_quality","code_organization","naming","readability","walkthrough_provided","walkthrough_clarity","covered_key_logic","mentioned_edge_cases","walkthrough_notes","knew_time_complexity","knew_space_complexity","explained_complexity_reasoning","understood_tradeoffs","scale_awareness","complexity_notes","code_observations"]},
-"problems_attempted":{"type":"array","description":"One entry per problem worked on. ALL problems from transcript.","items":{
+"problems_attempted":{"type":"array","description":"One entry per problem worked on.","items":{
   "type":"object","additionalProperties":false,"properties":{
     "problem_id":{"type":"string"},
     "problem_title":{"type":"string"},
@@ -64,34 +38,32 @@ SCHEMA:
     "outcome":{"type":"string","enum":["solved","partial","stuck","skipped"]},
     "tests_passed":{"type":"integer","minimum":0},
     "tests_total":{"type":"integer","minimum":0},
+    "approach":{"type":"string","enum":["brute_force","hash_map","two_pointer","sorting","dynamic_programming","recursion","greedy","other","incomplete"]},
     "approach_used":{"type":"string"},
     "time_complexity":{"type":"string"},
     "space_complexity":{"type":"string"},
+    "optimal":{"type":"boolean"},
     "time_spent_minutes":{"type":"integer","minimum":0},
     "hints_used":{"type":"integer","minimum":0},
-    "creativity_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=standard, 5=innovative"},
-    "creativity_notes":{"type":"string"},
-    "logic_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=flawed, 5=impeccable"},
-    "logic_notes":{"type":"string"},
-    "code_quality_score":{"type":"integer","minimum":1,"maximum":5},
-    "code_quality_notes":{"type":"string"},
-    "explainability_score":{"type":"integer","minimum":1,"maximum":5},
-    "walked_through_code":{"type":"boolean"},
-    "explained_logic":{"type":"boolean"},
-    "explainability_notes":{"type":"string"},
-    "complexity_score":{"type":"integer","minimum":1,"maximum":5,"description":"Understanding of time/space complexity"},
+    "code_quality":{"type":"string","enum":["excellent","good","adequate","poor","incomplete"]},
+    "readability":{"type":"string","enum":["highly_readable","readable","hard_to_follow","not_applicable"]},
+    "walkthrough_provided":{"type":"boolean"},
+    "walkthrough_clarity":{"type":"string","enum":["excellent","good","adequate","poor","not_provided"]},
     "knew_time":{"type":"boolean"},
     "knew_space":{"type":"boolean"},
     "explained_why":{"type":"boolean"},
-    "complexity_notes":{"type":"string"},
-    "scale_score":{"type":"integer","minimum":1,"maximum":5},
     "discussed_large_inputs":{"type":"boolean"},
-    "identified_tradeoffs":{"type":"boolean"},
-    "scale_notes":{"type":"string"},
-    "key_strengths":{"type":"array","items":{"type":"string"},"maxItems":3},
-    "areas_to_improve":{"type":"array","items":{"type":"string"},"maxItems":3},
+    "creativity_score":{"type":"integer","minimum":1,"maximum":5},
+    "logic_score":{"type":"integer","minimum":1,"maximum":5},
+    "code_quality_score":{"type":"integer","minimum":1,"maximum":5},
+    "explainability_score":{"type":"integer","minimum":1,"maximum":5},
+    "complexity_score":{"type":"integer","minimum":1,"maximum":5},
+    "scale_score":{"type":"integer","minimum":1,"maximum":5},
+    "eval_notes":{"type":"string","description":"1-2 sentences covering key observations"},
+    "key_strengths":{"type":"array","items":{"type":"string"},"maxItems":2},
+    "areas_to_improve":{"type":"array","items":{"type":"string"},"maxItems":2},
     "key_feedback":{"type":"string"}},
-  "required":["problem_id","problem_title","difficulty","outcome","tests_passed","tests_total","approach_used","time_complexity","space_complexity","time_spent_minutes","hints_used","creativity_score","creativity_notes","logic_score","logic_notes","code_quality_score","code_quality_notes","explainability_score","walked_through_code","explained_logic","explainability_notes","complexity_score","knew_time","knew_space","explained_why","complexity_notes","scale_score","discussed_large_inputs","identified_tradeoffs","scale_notes","key_strengths","areas_to_improve","key_feedback"]}},
+  "required":["problem_id","problem_title","difficulty","outcome","tests_passed","tests_total","approach","approach_used","time_complexity","space_complexity","optimal","time_spent_minutes","hints_used","code_quality","readability","walkthrough_provided","walkthrough_clarity","knew_time","knew_space","explained_why","discussed_large_inputs","creativity_score","logic_score","code_quality_score","explainability_score","complexity_score","scale_score","eval_notes","key_strengths","areas_to_improve","key_feedback"]}},
 "debugging_history":{"type":"array","items":{
   "type":"object","additionalProperties":false,"properties":{
     "error_type":{"type":"string"},
@@ -100,45 +72,45 @@ SCHEMA:
     "hint_needed":{"type":"boolean"}},
   "required":["error_type","description","resolved","hint_needed"]}},
 "turns":{"type":"integer","minimum":0},
-"overview":{"type":"string","description":"150-300 words. Start 'Completed X of Y problems.' Cover each problem: approach, outcome, walkthrough, complexity discussion, communication."},
-"skill_assessment":{"type":"object","additionalProperties":false,"description":"Score 1-5 with one-sentence evidence. 3 if insufficient evidence.","properties":{
+"overview":{"type":"string","description":"50-100 words. Start 'Completed X of Y.' Summarize each problem's approach and outcome."},
+"skill_assessment":{"type":"object","additionalProperties":false,"properties":{
   "problem_solving":{"type":"integer","minimum":1,"maximum":5},
-  "problem_solving_evidence":{"type":"string"},
+  "problem_solving_e":{"type":"string"},
   "code_fluency":{"type":"integer","minimum":1,"maximum":5},
-  "code_fluency_evidence":{"type":"string"},
+  "code_fluency_e":{"type":"string"},
   "communication":{"type":"integer","minimum":1,"maximum":5},
-  "communication_evidence":{"type":"string"},
+  "communication_e":{"type":"string"},
   "efficiency_awareness":{"type":"integer","minimum":1,"maximum":5},
-  "efficiency_awareness_evidence":{"type":"string"}},
-  "required":["problem_solving","problem_solving_evidence","code_fluency","code_fluency_evidence","communication","communication_evidence","efficiency_awareness","efficiency_awareness_evidence"]},
-"potential_assessment":{"type":"object","additionalProperties":false,"description":"Evaluate HOW they approached problems, not just outcome. Failing candidate with great thinking = high scores.","properties":{
-  "creativity_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=conventional, 5=innovative"},
-  "creativity_analysis":{"type":"string","description":"2-3 sentences"},
-  "tenacity_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=gave up, 5=exceptional persistence"},
-  "tenacity_analysis":{"type":"string","description":"2-3 sentences"},
-  "aptitude_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=struggled with feedback, 5=rapid learning"},
-  "aptitude_analysis":{"type":"string","description":"2-3 sentences"},
-  "propensity_score":{"type":"integer","minimum":1,"maximum":5,"description":"1=disorganized, 5=methodical"},
-  "propensity_analysis":{"type":"string","description":"2-3 sentences"},
-  "talent_indicators":{"type":"array","items":{"type":"string"},"maxItems":5},
+  "efficiency_awareness_e":{"type":"string"}},
+  "required":["problem_solving","problem_solving_e","code_fluency","code_fluency_e","communication","communication_e","efficiency_awareness","efficiency_awareness_e"]},
+"potential_assessment":{"type":"object","additionalProperties":false,"description":"Evaluate HOW they think, not just outcome.","properties":{
+  "creativity_score":{"type":"integer","minimum":1,"maximum":5},
+  "creativity_a":{"type":"string"},
+  "tenacity_score":{"type":"integer","minimum":1,"maximum":5},
+  "tenacity_a":{"type":"string"},
+  "aptitude_score":{"type":"integer","minimum":1,"maximum":5},
+  "aptitude_a":{"type":"string"},
+  "propensity_score":{"type":"integer","minimum":1,"maximum":5},
+  "propensity_a":{"type":"string"},
+  "talent_indicators":{"type":"array","items":{"type":"string"},"maxItems":3},
   "potential_vs_performance":{"type":"string","enum":["potential_exceeds_performance","potential_matches_performance","performance_exceeds_potential","insufficient_evidence"]},
   "growth_trajectory":{"type":"string","enum":["high_growth","moderate_growth","limited_growth","unknown"]}},
-  "required":["creativity_score","creativity_analysis","tenacity_score","tenacity_analysis","aptitude_score","aptitude_analysis","propensity_score","propensity_analysis","talent_indicators","potential_vs_performance","growth_trajectory"]},
+  "required":["creativity_score","creativity_a","tenacity_score","tenacity_a","aptitude_score","aptitude_a","propensity_score","propensity_a","talent_indicators","potential_vs_performance","growth_trajectory"]},
 "fit":{"type":"object","additionalProperties":false,"properties":{
   "score_0_100":{"type":"number","minimum":0,"maximum":100},
   "rec":{"type":"string","enum":["strong_yes","yes","lean_yes","lean_no","no"]},
   "conf":{"type":"string","enum":["high","medium","low"]},
   "rationale":{"type":"string"}},
   "required":["score_0_100","rec","conf","rationale"]},
-"strengths":{"type":"array","items":{"type":"string"},"maxItems":4},
-"areas_for_improvement":{"type":"array","items":{"type":"string"},"maxItems":4},
-"gaps":{"type":"array","description":"Gaps in ATTEMPTED problems only. Unattempted go in remaining_problems.","items":{
+"strengths":{"type":"array","items":{"type":"string"},"maxItems":3},
+"areas_for_improvement":{"type":"array","items":{"type":"string"},"maxItems":3},
+"gaps":{"type":"array","items":{
   "type":"object","additionalProperties":false,"properties":{
     "missing":{"type":"string"},
     "why_matters":{"type":"string"},
     "next_q":{"type":"string"}},
   "required":["missing","why_matters","next_q"]}},
-"remaining_problems":{"type":"array","description":"Unattempted problems. Empty if all attempted.","items":{
+"remaining_problems":{"type":"array","items":{
   "type":"object","additionalProperties":false,"properties":{
     "problem_title":{"type":"string"},
     "difficulty":{"type":"string","enum":["easy","medium","hard"]},
@@ -155,8 +127,8 @@ SCHEMA:
   "escalated":{"type":"boolean"},
   "reason":{"type":"string"}},
   "required":["flags","escalated","reason"]},
-"next_steps":{"type":"array","items":{"type":"string"},"maxItems":5},
-"final_code":{"type":"string","description":"Copy from DPP.live_code.current_code"}},
-"required":["v","mode","ctx","session_stats","solution_analysis","problems_attempted","debugging_history","turns","overview","skill_assessment","potential_assessment","fit","strengths","areas_for_improvement","gaps","remaining_problems","cq","risk","next_steps","final_code"]}
+"next_steps":{"type":"array","items":{"type":"string"},"maxItems":3},
+"final_code":{"type":"string","description":"DPP.live_code.current_code"}},
+"required":["v","mode","ctx","session_stats","problems_attempted","debugging_history","turns","overview","skill_assessment","potential_assessment","fit","strengths","areas_for_improvement","gaps","remaining_problems","cq","risk","next_steps","final_code"]}
 
-Output ONLY valid JSON matching this schema. Ensure complete and valid JSON.
+Output ONLY valid JSON. Be concise.
