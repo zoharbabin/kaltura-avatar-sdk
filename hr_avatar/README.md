@@ -271,6 +271,15 @@ Edit `HR_SYSTEM_PROMPT` in `lambda/lambda_function.py` to customize how HR call 
 
 Chrome 60+ · Firefox 55+ · Safari 11+ · Edge 79+
 
+## Version
+
+Current: v1.0.21
+
+### Changelog
+
+- **v1.0.21**: Fixed avatar context confusion — increased DPP injection delay (200ms → 800ms), added DPP validation before injection, fixed state leakage on scenario switch, ensured CV context threads through analysis, updated base_prompt.txt with edited fields guidance
+- **v1.0.20**: Performance improvements, refined call summary schema v4.1
+
 ## License
 
 MIT

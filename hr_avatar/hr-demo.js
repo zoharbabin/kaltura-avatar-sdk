@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.20',
+    VERSION: '1.0.21',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -31,8 +31,8 @@ const CONFIG = Object.freeze({
     // Call analysis API endpoint (AWS Lambda + API Gateway)
     ANALYSIS_API_URL: 'https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com',
 
-    // Timing
-    PROMPT_INJECTION_DELAY_MS: 200,
+    // Timing - increased from 200ms to ensure SDK is fully ready before DPP injection
+    PROMPT_INJECTION_DELAY_MS: 800,
 
     // Avatar display name
     AVATAR_NAME: 'Nora (HR)',
@@ -473,8 +473,10 @@ async function selectScenario(id, type) {
         state.sdk.end();
     }
 
-    // Reset state
+    // Reset state - fully clean up to prevent context leakage between scenarios
     state.isConversationActive = false;
+    state.lastCallSummary = null;      // Clear analysis from previous call
+    state.lastScenarioName = null;     // Clear scenario name
     resetEditedFields();
     clearCV();
 
@@ -856,6 +858,48 @@ async function startConversation() {
 }
 
 /**
+ * Validate DPP before injection.
+ * Catches corrupted state and logs warnings.
+ * @param {Object} dpp - DPP object to validate
+ * @returns {boolean} True if valid, false if critical errors
+ */
+function validateDPP(dpp) {
+    const errors = [];
+    const warnings = [];
+
+    // Required fields
+    if (!dpp.v) errors.push('Missing: v (schema version)');
+    if (!dpp.mode || !['interview', 'post_interview', 'separation'].includes(dpp.mode)) {
+        errors.push(`Invalid mode: ${dpp.mode}`);
+    }
+    if (!dpp.org?.n) errors.push('Missing: org.n (company name)');
+    if (!dpp.role?.t) errors.push('Missing: role.t (role title)');
+    if (!dpp.subj?.name) errors.push('Missing: subj.name (person name)');
+
+    // Mode-specific validation
+    if (dpp.mode === 'interview') {
+        if (!dpp.mtg?.mins) warnings.push('Interview missing mtg.mins');
+        if (!dpp.eval) warnings.push('Interview missing eval block');
+    } else if (dpp.mode === 'post_interview') {
+        if (!dpp.case?.talk?.length) errors.push('post_interview requires case.talk array');
+    } else if (dpp.mode === 'separation') {
+        if (!dpp.case?.talk?.length) errors.push('separation requires case.talk array');
+        if (!dpp.case?.type) errors.push('separation requires case.type');
+    }
+
+    // Log results
+    if (errors.length > 0) {
+        console.error('[DPP Validation] Errors:', errors);
+        return false;
+    }
+    if (warnings.length > 0) {
+        console.warn('[DPP Validation] Warnings:', warnings);
+    }
+
+    return true;
+}
+
+/**
  * Build the dynamic prompt JSON string.
  * Applies user edits and CV data to the scenario data.
  * @returns {string|null} JSON string for prompt injection
@@ -881,6 +925,23 @@ function buildDynamicPrompt() {
             'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
         );
     }
+
+    // Validate before returning
+    if (!validateDPP(promptData)) {
+        console.error('[DPP] Validation failed - DPP may be malformed');
+        // Still return the prompt - let the avatar handle gracefully
+    }
+
+    // Debug logging
+    console.log('[DPP Build] Context:', {
+        mode: promptData.mode,
+        company: promptData.org?.n,
+        role: promptData.role?.t,
+        candidate: promptData.subj?.name,
+        duration: promptData.mtg?.mins,
+        hasCv: !!state.cvText,
+        editedFields: Object.keys(state.editedFields).filter(k => state.editedFields[k])
+    });
 
     return JSON.stringify(promptData);
 }
@@ -1126,6 +1187,7 @@ async function analyzeCall() {
 
 /**
  * Build DPP object for analysis API.
+ * Ensures CV context is threaded through for consistent evaluation.
  * @returns {Object} DPP with user edits applied
  */
 function buildDPPForAnalysis() {
@@ -1133,11 +1195,21 @@ function buildDPPForAnalysis() {
 
     const dpp = applyUserEdits(deepClone(state.scenarioData));
 
-    // Add CV flag if provided
+    // Add CV information if provided - same as in buildDynamicPrompt for consistency
     if (state.cvText) {
         dpp.subj = dpp.subj || {};
         dpp.subj.prof = dpp.subj.prof || {};
+        dpp.subj.prof.notes = dpp.subj.prof.notes || [];
+
         dpp.subj.prof.cv_summary = state.cvText;
+        dpp.subj.prof.notes.push(
+            'IMPORTANT: A CV/resume was provided. Review the cv_summary and ask relevant follow-up questions about their experience, skills, and background mentioned in the CV.'
+        );
+
+        dpp.inst = dpp.inst || [];
+        dpp.inst.push(
+            'Reference specific details from the candidate\'s CV when asking questions. Ask about gaps, interesting projects, or skills mentioned.'
+        );
     }
 
     return dpp;
