@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.23',
+    VERSION: '1.0.24',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -31,8 +31,9 @@ const CONFIG = Object.freeze({
     // Call analysis API endpoint (AWS Lambda + API Gateway)
     ANALYSIS_API_URL: 'https://30vsmo8j0l.execute-api.us-west-2.amazonaws.com',
 
-    // Timing - increased from 200ms to ensure SDK is fully ready before DPP injection
-    PROMPT_INJECTION_DELAY_MS: 800,
+    // Delay (ms) after SHOWING_AGENT before injecting DPP
+    // This ensures the avatar is fully ready to receive context
+    DPP_INJECTION_DELAY_MS: 500,
 
     // Avatar display name
     AVATAR_NAME: 'Nora (HR)',
@@ -371,17 +372,17 @@ function initSDK() {
         updateDownloadButtons();
     });
 
-    // Inject DPP as early as possible when avatar becomes visible
+    // Inject DPP when avatar becomes visible (SHOWING_AGENT)
+    // This is the proper time to inject - the avatar is ready to receive context
     state.sdk.on(KalturaAvatarSDK.Events.SHOWING_AGENT, () => {
-        console.log('[SDK] Avatar visible - injecting DPP immediately');
-        const promptJson = buildDynamicPrompt();
-        if (promptJson) {
-            state.sdk.injectPrompt(promptJson);
-            // Re-inject after a short delay to override any default greeting
-            setTimeout(() => {
+        console.log('[SDK] Avatar visible - scheduling DPP injection');
+        setTimeout(() => {
+            const promptJson = buildDynamicPrompt();
+            if (promptJson) {
+                console.log('[SDK] Injecting DPP after SHOWING_AGENT delay');
                 state.sdk.injectPrompt(promptJson);
-            }, 500);
-        }
+            }
+        }, CONFIG.DPP_INJECTION_DELAY_MS);
     });
 
     // Avatar speech -> transcript
@@ -392,21 +393,6 @@ function initSDK() {
 
             // Check for call-ending trigger phrases
             checkForCallEndTrigger(text);
-
-            // Detect if avatar is using wrong context (default flow prompt)
-            // and re-inject DPP to correct it
-            const wrongContextPhrases = ['Senior Marketing', 'marketing position', 'marketing role'];
-            const hasWrongContext = wrongContextPhrases.some(phrase =>
-                text.toLowerCase().includes(phrase.toLowerCase())
-            );
-
-            if (hasWrongContext && state.scenarioData) {
-                console.warn('[SDK] Detected wrong context in avatar speech, re-injecting DPP');
-                const promptJson = buildDynamicPrompt();
-                if (promptJson) {
-                    state.sdk.injectPrompt(promptJson);
-                }
-            }
         }
     });
 
@@ -934,15 +920,8 @@ async function startConversation() {
     ui.avatarContainer.classList.remove('empty');
 
     try {
+        // Start the SDK - DPP injection happens on SHOWING_AGENT event
         await state.sdk.start();
-
-        // Inject DPP after avatar is ready
-        setTimeout(() => {
-            const promptJson = buildDynamicPrompt();
-            if (promptJson) {
-                state.sdk.injectPrompt(promptJson);
-            }
-        }, CONFIG.PROMPT_INJECTION_DELAY_MS);
     } catch (error) {
         console.error('Failed to start conversation:', error);
         updateStatus('error');
