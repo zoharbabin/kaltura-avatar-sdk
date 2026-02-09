@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.22',
+    VERSION: '1.0.23',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -221,6 +221,9 @@ const state = {
     /** @type {Object|null} Last call summary from analysis API */
     lastCallSummary: null,
 
+    /** @type {boolean} Flag to prevent duplicate end-of-call handling */
+    isEndingCall: false,
+
     /**
      * User-edited field overrides.
      * These override the defaults from scenario JSON when building the prompt.
@@ -387,6 +390,9 @@ function initSDK() {
         if (text) {
             addTranscriptEntry('avatar', CONFIG.AVATAR_NAME, text);
 
+            // Check for call-ending trigger phrases
+            checkForCallEndTrigger(text);
+
             // Detect if avatar is using wrong context (default flow prompt)
             // and re-inject DPP to correct it
             const wrongContextPhrases = ['Senior Marketing', 'marketing position', 'marketing role'];
@@ -412,12 +418,10 @@ function initSDK() {
         }
     });
 
-    // Conversation ended -> show loading, analyze, then reset
+    // Conversation ended -> use centralized handler
     state.sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, async () => {
-        showAnalyzingState();
-        await analyzeCall();
-        highlightDownloadButton();
-        resetToInitialState();
+        console.log('[SDK] CONVERSATION_ENDED event received');
+        await handleCallEnd();
     });
 
     // Error handling
@@ -425,6 +429,69 @@ function initSDK() {
         console.error('SDK Error:', message);
         updateStatus('error');
     });
+}
+
+// =============================================================================
+// AVATAR SPEECH TRIGGERS
+// =============================================================================
+
+/**
+ * Check if avatar speech contains call-ending trigger phrases.
+ * When detected, triggers the end-of-call handler after a short delay.
+ *
+ * @param {string} text - Avatar speech text to check
+ */
+function checkForCallEndTrigger(text) {
+    if (!text || typeof text !== 'string') return;
+
+    const lowerText = text.toLowerCase();
+
+    // Trigger phrases that indicate the avatar is ending the call
+    const endCallPhrases = [
+        'ending call now',
+        'ending the call now',
+        'end the call now',
+        'ending this call',
+        'ending our call',
+        'conclude our call',
+        'concluding the call',
+        'wrapping up the call',
+        'wrapping up now',
+        'goodbye and take care',
+        'thank you for your time today'
+    ];
+
+    const shouldEndCall = endCallPhrases.some(phrase => lowerText.includes(phrase));
+
+    if (shouldEndCall && state.isConversationActive && !state.isEndingCall) {
+        console.log('[Avatar] Call end trigger detected:', text.substring(0, 50) + '...');
+        state.isEndingCall = true; // Prevent duplicate handling
+
+        // Delay to allow avatar to finish speaking before triggering end handler
+        setTimeout(async () => {
+            console.log('[Avatar] Triggering end-of-call handler');
+            await handleCallEnd();
+        }, 2000);
+    }
+}
+
+/**
+ * Handle end of call - analyze and reset.
+ * Centralized handler to prevent duplicate processing.
+ */
+async function handleCallEnd() {
+    // Prevent duplicate calls
+    if (!state.isConversationActive && !state.isEndingCall) {
+        console.log('[handleCallEnd] Already ended, skipping');
+        return;
+    }
+
+    console.log('[handleCallEnd] Processing end of call');
+    showAnalyzingState();
+    await analyzeCall();
+    highlightDownloadButton();
+    resetToInitialState();
+    state.isEndingCall = false; // Reset flag after handling
 }
 
 // =============================================================================
@@ -1091,6 +1158,7 @@ function resetToInitialState() {
     state.currentScenario = null;
     state.scenarioData = null;
     state.isConversationActive = false;
+    state.isEndingCall = false;
     resetEditedFields();
     clearCV();
 
