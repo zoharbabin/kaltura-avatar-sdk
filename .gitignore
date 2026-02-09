@@ -22,3 +22,7 @@ hr_avatar/lambda/benchmark_results.json
 __pycache__/
 *.pyc
 *.pyo
+
+# Node.js
+node_modules/
+package-lock.json
