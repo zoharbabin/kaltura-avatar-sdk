@@ -282,6 +282,7 @@ const state = {
 
     // Code injection tracking
     lastInjectedCode: '',
+    lastInjectedProblemId: null, // Track which problem was last injected
     lastInjectionTime: 0,
     debounceTimer: null,
     intervalTimer: null,
@@ -633,14 +634,49 @@ async function startAvatar() {
 // DPP INJECTION
 // =============================================================================
 
+/**
+ * Validate DPP consistency before injection.
+ * Catches corrupted state early and logs warnings.
+ */
+function validateDPP(dpp) {
+    const warnings = [];
+
+    // Validate problem consistency
+    if (dpp.session.current_problem !== state.currentProblemIndex + 1) {
+        warnings.push(`Problem mismatch: DPP=${dpp.session.current_problem}, state=${state.currentProblemIndex + 1}`);
+    }
+
+    // Validate phase/completion consistency
+    if (dpp.session.phase === 'COMPLETE' && !dpp.session.problem_completed) {
+        warnings.push('Phase=COMPLETE but problem_completed=false');
+    }
+
+    // Validate last_execution alignment with state
+    if (dpp.last_execution && !state.lastRunResult) {
+        warnings.push('DPP has last_execution but state.lastRunResult is null');
+    }
+
+    // Log warnings but don't block injection
+    if (warnings.length > 0) {
+        console.warn('[DPP Validation]', warnings);
+    }
+
+    return warnings.length === 0;
+}
+
 function injectDPP(reason = 'update') {
     if (!state.sdk) return;
 
     const dpp = state.buildDPP();
+
+    // Validate before injection (warn but don't block)
+    validateDPP(dpp);
+
     const json = JSON.stringify(dpp);
 
     state.sdk.injectPrompt(json);
     state.lastInjectedCode = dpp.live_code.current_code;
+    state.lastInjectedProblemId = state.currentProblem?.id; // Track problem for change detection
     state.lastInjectionTime = Date.now();
 
     if (ui.debugDpp) {
@@ -648,6 +684,7 @@ function injectDPP(reason = 'update') {
     }
 
     console.log(`[DPP] Injected (${reason}):`, {
+        problem: dpp.session.problem_id,
         phase: dpp.session.phase,
         code_lines: dpp.live_code.line_count,
         elapsed_secs: dpp.session.elapsed_seconds
@@ -665,7 +702,12 @@ function onCodeChange() {
 
     state.debounceTimer = setTimeout(() => {
         const currentCode = state.editor?.getValue() || '';
-        if (currentCode !== state.lastInjectedCode) {
+        const currentProblemId = state.currentProblem?.id;
+        // Inject if code changed OR problem changed (handles identical starter code)
+        const codeChanged = currentCode !== state.lastInjectedCode;
+        const problemChanged = currentProblemId !== state.lastInjectedProblemId;
+
+        if (codeChanged || problemChanged) {
             injectDPP('code_change');
         }
     }, CONFIG.DEBOUNCE_MS);
@@ -676,9 +718,14 @@ function startCodeTracking() {
 
     state.intervalTimer = setInterval(() => {
         const currentCode = state.editor?.getValue() || '';
+        const currentProblemId = state.currentProblem?.id;
         const timeSinceLastInjection = Date.now() - state.lastInjectionTime;
 
-        if (currentCode !== state.lastInjectedCode && timeSinceLastInjection >= CONFIG.MAX_INTERVAL_MS) {
+        // Inject if code or problem changed and enough time has passed
+        const codeChanged = currentCode !== state.lastInjectedCode;
+        const problemChanged = currentProblemId !== state.lastInjectedProblemId;
+
+        if ((codeChanged || problemChanged) && timeSinceLastInjection >= CONFIG.MAX_INTERVAL_MS) {
             injectDPP('interval');
         }
     }, CONFIG.MAX_INTERVAL_MS);
@@ -1613,6 +1660,9 @@ Explanation: ${escapeHtml(example.explanation)}</pre>
  * Check if the avatar's speech contains action triggers.
  * - "switching to the next challenge now" → switch to next problem
  * - "ending the session now" → end session and show analysis
+ *
+ * IMPORTANT: Stops code tracking during transitions to prevent race conditions
+ * where stale DPP injections occur during state changes.
  */
 function checkForProblemSwitchTrigger(text) {
     const lowerText = text.toLowerCase();
@@ -1621,20 +1671,24 @@ function checkForProblemSwitchTrigger(text) {
     if (lowerText.includes('switching to the next challenge now')) {
         const hasNext = state.currentProblemIndex + 1 < PROBLEM_ORDER.length;
         if (hasNext) {
-            console.log('[Avatar] Switch trigger detected');
+            console.log('[Avatar] Switch trigger detected - suspending code tracking');
+            stopCodeTracking(); // Prevent race conditions during transition
             setTimeout(() => {
                 switchToNextProblem();
-            }, 1500);
+                startCodeTracking(); // Resume after state is fully updated
+            }, 800); // Reduced from 1500ms to minimize race window
         }
         return;
     }
 
     // Trigger: end session
     if (lowerText.includes('ending the session now')) {
-        console.log('[Avatar] End session trigger detected');
+        console.log('[Avatar] End session trigger detected - suspending code tracking');
+        stopCodeTracking(); // Prevent race conditions during transition
         setTimeout(() => {
             handleSessionEnd();
-        }, 2000);
+            // No need to restart tracking - session is ending
+        }, 1500); // Reduced from 2000ms
     }
 }
 

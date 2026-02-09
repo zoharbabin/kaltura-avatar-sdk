@@ -17,3 +17,8 @@ node_modules/
 hr_avatar/lambda/function.zip
 hr_avatar/lambda/.api-url
 hr_avatar/lambda/benchmark_results.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

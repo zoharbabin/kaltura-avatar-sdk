@@ -302,6 +302,13 @@ python3 -m http.server 8081
 # Open http://localhost:8081
 ```
 
+**Recent Improvements (v1.5.6):**
+- Fixed state leakage between problems (test results no longer persist to next problem)
+- Added race condition prevention during problem transitions
+- DPP now tracks problem ID to handle identical starter code
+- Added DPP validation to catch state inconsistencies early
+- Reduced transition delays for smoother UX (1500ms → 800ms)
+
 ### Dynamic Page Prompt (DPP)
 
 Both demos use the Dynamic Page Prompt system to customize avatar behavior at runtime:

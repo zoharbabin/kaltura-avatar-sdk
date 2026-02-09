@@ -205,10 +205,11 @@ If any per-problem call fails, a fallback entry with neutral scores (3/5) is use
 
 ## Version
 
-Current: v1.5.5
+Current: v1.5.6
 
 ### Changelog
 
+- **v1.5.6**: Fixed avatar context confusion — state leakage between problems (test results now properly cleared), race condition prevention during problem transitions (code tracking suspended), DPP tracks problem ID (handles identical starter code), DPP validation catches state inconsistencies, reduced transition delays (1500ms → 800ms)
 - **v1.5.5**: Iterative parallel analysis pipeline (per-problem + synthesis), v1.5 summary schema with nested scores, retry logic with 3s backoff, performance benchmark
 - **v1.5.4**: Fixed session-end race condition (transcript captured before SDK stop), SDK end-call button triggers end screen, 10-minute default session, problems passed dynamically via DPP (removed hardcoded solutions from base prompt), avatar patience improvements (no rephrasing/summarizing)
 - **v1.5.0**: Three-screen flow (Opening > Interview > End), user registration with validation, personalized avatar interaction using candidate name, inline report display (replaces modal), restart functionality
