@@ -368,11 +368,39 @@ function initSDK() {
         updateDownloadButtons();
     });
 
+    // Inject DPP as early as possible when avatar becomes visible
+    state.sdk.on(KalturaAvatarSDK.Events.SHOWING_AGENT, () => {
+        console.log('[SDK] Avatar visible - injecting DPP immediately');
+        const promptJson = buildDynamicPrompt();
+        if (promptJson) {
+            state.sdk.injectPrompt(promptJson);
+            // Re-inject after a short delay to override any default greeting
+            setTimeout(() => {
+                state.sdk.injectPrompt(promptJson);
+            }, 500);
+        }
+    });
+
     // Avatar speech -> transcript
     state.sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
         const text = data?.agentContent || (typeof data === 'string' ? data : null);
         if (text) {
             addTranscriptEntry('avatar', CONFIG.AVATAR_NAME, text);
+
+            // Detect if avatar is using wrong context (default flow prompt)
+            // and re-inject DPP to correct it
+            const wrongContextPhrases = ['Senior Marketing', 'marketing position', 'marketing role'];
+            const hasWrongContext = wrongContextPhrases.some(phrase =>
+                text.toLowerCase().includes(phrase.toLowerCase())
+            );
+
+            if (hasWrongContext && state.scenarioData) {
+                console.warn('[SDK] Detected wrong context in avatar speech, re-injecting DPP');
+                const promptJson = buildDynamicPrompt();
+                if (promptJson) {
+                    state.sdk.injectPrompt(promptJson);
+                }
+            }
         }
     });
 
