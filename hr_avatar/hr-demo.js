@@ -22,7 +22,7 @@
  */
 const CONFIG = Object.freeze({
     // Version - bump when making changes to bust browser cache
-    VERSION: '1.0.21',
+    VERSION: '1.0.22',
 
     // Kaltura Avatar SDK credentials
     CLIENT_ID: '115767973963657880005',
@@ -960,7 +960,7 @@ function buildDynamicPrompt() {
         // Still return the prompt - let the avatar handle gracefully
     }
 
-    // Debug logging
+    // Debug logging - summary
     console.log('[DPP Build] Context:', {
         mode: promptData.mode,
         company: promptData.org?.n,
@@ -971,7 +971,18 @@ function buildDynamicPrompt() {
         editedFields: Object.keys(state.editedFields).filter(k => state.editedFields[k])
     });
 
-    return JSON.stringify(promptData);
+    const dppJson = JSON.stringify(promptData);
+
+    // Debug logging - full DPP (for troubleshooting)
+    console.log('[DPP Build] Full DPP being injected:', dppJson);
+
+    // Update debug panel if it exists
+    const debugPanel = document.getElementById('debug-dpp');
+    if (debugPanel) {
+        debugPanel.textContent = JSON.stringify(promptData, null, 2);
+    }
+
+    return dppJson;
 }
 
 /**
