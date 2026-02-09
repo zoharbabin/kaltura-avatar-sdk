@@ -77,9 +77,13 @@ const sdk = new KalturaAvatarSDK({
     container: '#avatar-container'
 });
 
-// Start and inject scenario
-await sdk.start();
-sdk.injectPrompt(JSON.stringify(scenarioData));
+// Best practice: Inject DPP when avatar becomes visible
+sdk.on(KalturaAvatarSDK.Events.SHOWING_AGENT, () => {
+    // Add small delay for safety margin
+    setTimeout(() => {
+        sdk.injectPrompt(JSON.stringify(scenarioData));
+    }, 500);
+});
 
 // Listen for events
 sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
@@ -93,6 +97,9 @@ sdk.on(KalturaAvatarSDK.Events.USER_TRANSCRIPTION, (data) => {
 sdk.on(KalturaAvatarSDK.Events.CONVERSATION_ENDED, () => {
     // Conversation ended - analyze and reset
 });
+
+// Start avatar
+await sdk.start();
 ```
 
 ### 3. Call Analysis
@@ -277,7 +284,10 @@ Current: v1.0.21
 
 ### Changelog
 
-- **v1.0.21**: Fixed avatar context confusion — increased DPP injection delay (200ms → 800ms), added DPP validation before injection, fixed state leakage on scenario switch, ensured CV context threads through analysis, updated base_prompt.txt with edited fields guidance
+- **v1.0.24**: Refactored DPP injection to use `SHOWING_AGENT` event — removed arbitrary timeout, DPP now injected when avatar is actually ready, added configurable `DPP_INJECTION_DELAY_MS` (500ms default)
+- **v1.0.23**: Added call end trigger detection — avatar saying "Ending call now" triggers end handler
+- **v1.0.22**: Added debug panel to show full DPP injection
+- **v1.0.21**: Fixed avatar context confusion — increased DPP injection delay (200ms → 800ms), added DPP validation before injection, fixed state leakage on scenario switch
 - **v1.0.20**: Performance improvements, refined call summary schema v4.1
 
 ## License

@@ -302,25 +302,64 @@ python3 -m http.server 8081
 # Open http://localhost:8081
 ```
 
-**Recent Improvements (v1.5.6):**
+**Recent Improvements (v1.5.7):**
+- DPP injection now uses `SHOWING_AGENT` event for proper timing
+- Removed arbitrary timeout — DPP injected when avatar is actually ready
+- Added configurable `DPP_INJECTION_DELAY_MS` (500ms default) for safety margin
+
+**Previous (v1.5.6):**
 - Fixed state leakage between problems (test results no longer persist to next problem)
 - Added race condition prevention during problem transitions
 - DPP now tracks problem ID to handle identical starter code
-- Added DPP validation to catch state inconsistencies early
-- Reduced transition delays for smoother UX (1500ms → 800ms)
 
 ### Dynamic Page Prompt (DPP)
 
-Both demos use the Dynamic Page Prompt system to customize avatar behavior at runtime:
+Both demos use the Dynamic Page Prompt system to customize avatar behavior at runtime.
+
+#### Best Practice: Inject DPP on SHOWING_AGENT
+
+The `SHOWING_AGENT` event fires when the avatar is fully loaded and visible. This is the **correct time** to inject the DPP — the avatar is ready to receive and process context.
 
 ```javascript
+const sdk = new KalturaAvatarSDK({
+  clientId: 'YOUR_CLIENT_ID',
+  flowId: 'YOUR_FLOW_ID',
+  container: '#avatar'
+});
+
 // Load scenario/config JSON
 const response = await fetch('scenario.json');
 const scenarioData = await response.json();
 
-// Start avatar and inject scenario
+// Listen for SHOWING_AGENT to inject DPP at the right time
+sdk.on(KalturaAvatarSDK.Events.SHOWING_AGENT, () => {
+  // Optional: add a small delay for safety margin
+  setTimeout(() => {
+    sdk.injectPrompt(JSON.stringify(scenarioData));
+  }, 500); // 500ms is a good default
+});
+
+// Start avatar
 await sdk.start();
-sdk.injectPrompt(JSON.stringify(scenarioData));
+```
+
+**Why this pattern?**
+- `sdk.start()` creates the iframe and begins loading, but returns immediately
+- The iframe loads asynchronously (user may see join screen, grant permissions)
+- `SHOWING_AGENT` fires when the avatar is actually visible and ready
+- Injecting before this event may fail (iframe not ready to receive postMessage)
+
+**Avoid this anti-pattern:**
+```javascript
+// ❌ BAD: Arbitrary timeout after start() — may fire too early or too late
+await sdk.start();
+setTimeout(() => sdk.injectPrompt(json), 800);
+
+// ✅ GOOD: Wait for SHOWING_AGENT event
+sdk.on('showing-agent', () => {
+  setTimeout(() => sdk.injectPrompt(json), 500);
+});
+await sdk.start();
 ```
 
 ### Analysis Backend

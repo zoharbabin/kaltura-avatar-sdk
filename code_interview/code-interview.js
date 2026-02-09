@@ -18,7 +18,7 @@
 // =============================================================================
 
 const CONFIG = Object.freeze({
-    VERSION: '1.5.5',
+    VERSION: '1.5.7',
 
     // Kaltura Avatar SDK
     CLIENT_ID: '115767973963657880005',
@@ -30,9 +30,10 @@ const CONFIG = Object.freeze({
     // Summary prompt file path (legacy — not used by iterative analysis flow)
     SUMMARY_PROMPT_PATH: 'summary_prompt.txt',
 
-    // Code context injection timing
-    DEBOUNCE_MS: 200,         // Wait 200ms after typing stops
-    MAX_INTERVAL_MS: 15000,   // Force update every 15s during active coding
+    // DPP injection timing
+    DPP_INJECTION_DELAY_MS: 500,  // Delay after SHOWING_AGENT before initial DPP injection
+    DEBOUNCE_MS: 200,             // Wait 200ms after typing stops for code updates
+    MAX_INTERVAL_MS: 15000,       // Force update every 15s during active coding
 
     // Avatar name
     AVATAR_NAME: 'Alex'
@@ -585,6 +586,17 @@ function initSDK() {
         updateStatus(to);
     });
 
+    // Inject initial DPP when avatar becomes visible (SHOWING_AGENT)
+    // This is the proper time to inject - the avatar is ready to receive context
+    state.sdk.on(KalturaAvatarSDK.Events.SHOWING_AGENT, () => {
+        console.log('[SDK] Avatar visible - scheduling initial DPP injection');
+        setTimeout(() => {
+            console.log('[SDK] Injecting initial DPP after SHOWING_AGENT delay');
+            injectDPP('initial');
+            startCodeTracking();
+        }, CONFIG.DPP_INJECTION_DELAY_MS);
+    });
+
     state.sdk.on(KalturaAvatarSDK.Events.AGENT_TALKED, (data) => {
         const text = data?.agentContent || data;
         console.log(`${CONFIG.AVATAR_NAME}:`, text);
@@ -614,16 +626,11 @@ function initSDK() {
 async function startAvatar() {
     try {
         updateStatus('connecting');
+        // Start the SDK - initial DPP injection happens on SHOWING_AGENT event
         await state.sdk.start();
 
         ui.loadingState.style.display = 'none';
         state.sessionStartTime = Date.now();
-
-        setTimeout(() => {
-            injectDPP('initial');
-            startCodeTracking();
-        }, 200);
-
     } catch (error) {
         console.error('Failed to start avatar:', error);
         updateStatus('error');
