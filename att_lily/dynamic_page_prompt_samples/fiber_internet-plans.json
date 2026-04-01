@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T FIBER CHECK"],
+  "product": "AT&T Fiber Internet Plans",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "What are the current AT&T Fiber speed tiers and how do you help a customer choose the right one?",
+      "A customer asks what equipment is included and whether there are installation fees. Walk me through it.",
+      "Explain what symmetrical upload and download speeds mean and why a customer should care.",
+      "A customer is concerned about a contract commitment. How do you position AT&T Fiber's terms?",
+      "A remote worker says they need rock-solid internet for video calls. How do you make the case for Fiber?"
+    ]
+  }
+}

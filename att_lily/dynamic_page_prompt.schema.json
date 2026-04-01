@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kaltura:dpp:att:v1",
+  "title": "AT&T Seller Hub Dynamic Page Prompt (v1)",
+  "description": "Context payload for AT&T Seller Hub knowledge checks and coaching sessions.",
+  "type": "object",
+  "required": ["v", "inst", "product"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "type": "string", "enum": ["1"], "description": "Schema version" },
+    "inst": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Instructions array. inst[0] determines the persona: 'AT&T GENERAL COACH', 'AT&T WIRELESS CHECK', 'AT&T FIBER CHECK', or 'AT&T CC CHECK'."
+    },
+    "product": { "type": "string", "description": "AT&T product being assessed or discussed" },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Employee display name" },
+        "email": { "type": "string", "format": "email", "description": "Employee email" }
+      }
+    },
+    "mtg": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "q_add": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Questions to ask, in order. Typically 5 for knowledge checks."
+        }
+      }
+    }
+  }
+}

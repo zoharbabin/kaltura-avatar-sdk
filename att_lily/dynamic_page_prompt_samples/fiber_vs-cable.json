@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T FIBER CHECK"],
+  "product": "AT&T Fiber vs Cable",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "A customer currently has cable internet and asks why they should switch to fiber. What's your pitch?",
+      "What are the technical advantages of fiber over cable, and how do you explain them without jargon?",
+      "A customer says their cable speeds are 'fast enough.' How do you create urgency to switch?",
+      "How does AT&T Fiber perform during peak usage times compared to cable, and why does that matter?",
+      "A customer says the competitor is offering a lower promotional price for cable. How do you handle that?"
+    ]
+  }
+}

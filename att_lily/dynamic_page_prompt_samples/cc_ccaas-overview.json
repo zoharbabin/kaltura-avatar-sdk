@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T CC CHECK"],
+  "product": "AT&T CCaaS Portfolio",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "What is CCaaS and how would you explain it to a business customer who's never heard the term?",
+      "What are the ideal customer profiles for AT&T Contact Center solutions? Who should we be targeting?",
+      "Walk me through the key benefits of moving from an on-premise contact center to AT&T's cloud solution.",
+      "How does AT&T differentiate its Contact Center offering from pure-play CCaaS competitors?",
+      "A prospect asks about deployment timelines and migration risk. How do you address those concerns?"
+    ]
+  }
+}

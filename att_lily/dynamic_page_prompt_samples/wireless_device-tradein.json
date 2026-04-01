@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T WIRELESS CHECK"],
+  "product": "AT&T Device Trade-In & Upgrades",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "Walk me through the AT&T trade-in process. What should a customer expect from start to finish?",
+      "A customer has an older phone and wants the latest iPhone. What trade-in and financing options would you present?",
+      "What is AT&T Next Up and how do you explain the value to a customer who upgrades frequently?",
+      "A customer says they can get a better trade-in value at a competitor's store. How do you respond?",
+      "How do you position device protection and insurance alongside a new device purchase?"
+    ]
+  }
+}

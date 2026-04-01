@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T CC CHECK"],
+  "product": "AT&T Contact Center Solution Mapping",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "A customer currently uses Office@Hand. Which contact center solution should you recommend and why?",
+      "An enterprise customer uses Microsoft Teams with AT&T IP Flex. What's the right contact center path for them?",
+      "Walk me through the four pillars of the AT&T Contact Center portfolio: Integrate, Engage, Empower, and Extend.",
+      "A healthcare company needs strict compliance and handles sensitive patient data. How do you position AT&T's solution?",
+      "A prospect says they're happy with their current contact center. What discovery questions would you ask to uncover pain points?"
+    ]
+  }
+}

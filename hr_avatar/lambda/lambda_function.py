@@ -1,17 +1,22 @@
 """
 Avatar Analysis Lambda Function
 
-Shared Lambda serving both the HR Avatar and Code Interview demos.
+Shared Lambda serving the HR Avatar, Code Interview, and AT&T Seller Hub demos.
 Analyzes call/session transcripts using AWS Bedrock (Claude) and returns
 structured JSON summaries.
 
 Analysis modes (selected by the `analysis_mode` request field):
-  - "per_problem": Analyze a single coding problem from a transcript (~5s, max_tokens=512)
-  - "synthesis":   Synthesize per-problem results into an overall assessment (~8s, max_tokens=512)
-  - (default):     Full single-call HR analysis using HR_SYSTEM_PROMPT (v4.1 schema, max_tokens from env)
+  - "per_problem":       Analyze a single coding problem from a transcript (~5s, max_tokens=512)
+  - "synthesis":         Synthesize per-problem results into an overall assessment (~8s, max_tokens=512)
+  - "knowledge_check":   Analyze a product knowledge check session (~8s, max_tokens=1500)
+  - "training_summary":  Generate a prose training session summary (~5s, max_tokens=500)
+  - "call_summary_email": Alias for training_summary (Alon's original main-avatar post-call mode)
+  - "general":           Structured sales training session report (~8s, max_tokens=1200)
+  - (default):           Full single-call HR analysis using HR_SYSTEM_PROMPT (v4.1 schema, max_tokens from env)
 
 The Code Interview client fires N parallel per_problem calls then one synthesis call.
 The HR Avatar client sends a single request with no analysis_mode (hits the default path).
+The AT&T Seller Hub sends knowledge_check (for quizzes) or general (for coaching sessions).
 
 Environment Variables:
     MODEL_ID:    Bedrock model ID (default: claude-3-haiku)
@@ -99,6 +104,63 @@ REQUIRED OUTPUT STRUCTURE:
 Return ONLY the JSON object."""
 
 # =============================================================================
+# AT&T SELLER HUB PROMPTS (knowledge check + training summary)
+# =============================================================================
+
+KNOWLEDGE_CHECK_SYSTEM_PROMPT = """You are an AT&T sales training evaluator. Analyze a knowledge check session transcript and output ONLY a valid JSON object. No markdown, no explanation.
+
+OUTPUT SCHEMA:
+{
+  "product": "<AT&T product assessed>",
+  "overall_score": <0-100 integer>,
+  "grade": "<A+|A|A-|B+|B|B-|C+|C|C-|D|F>",
+  "summary": "<2-3 sentence overview of the session>",
+  "strong_spots": ["<up to 4 specific strengths observed>"],
+  "weak_spots": ["<up to 4 specific gaps or mistakes>"],
+  "areas_to_improve": ["<up to 4 concrete, actionable improvement items>"],
+  "study_suggestions": [
+    {"topic": "<topic name>", "why": "<why this matters for selling>", "priority": "<high|medium|low>"}
+  ],
+  "question_breakdown": [
+    {"question_summary": "<short label>", "score": <1-5>, "quality": "<strong|adequate|weak>", "feedback": "<1 sentence>"}
+  ],
+  "readiness": "<ready_to_sell|needs_review|not_ready>"
+}"""
+
+TRAINING_SUMMARY_SYSTEM_PROMPT = """You are an AT&T Seller Hub AI assistant. You observed a conversation between an AT&T sales employee and an AI avatar trainer.
+
+Write a concise, professional call summary. Include:
+- A brief overview of what was discussed (2-3 sentences)
+- Key topics that came up during the session
+- Strengths you observed in how the employee handled the conversation
+- Suggested next steps and specific areas to focus on
+
+Output ONLY valid JSON with this structure:
+{
+  "summary_text": "<prose summary, max 250 words, no markdown>",
+  "topics": ["<key topic 1>", "<key topic 2>"],
+  "engagement": "<high|medium|low>"
+}"""
+
+GENERAL_ANALYSIS_SYSTEM_PROMPT = """You are an AT&T sales training evaluator. Analyze a sales training conversation and output ONLY a valid JSON object. No markdown, no explanation.
+
+OUTPUT SCHEMA:
+{
+  "session_type": "<short label for the type of session based on the transcript>",
+  "overall_score": <0-100 integer>,
+  "grade": "<A+|A|A-|B+|B|B-|C+|C|C-|D|F>",
+  "summary": "<2-3 sentence overview of the session>",
+  "strong_spots": ["<up to 4 specific strengths observed>"],
+  "weak_spots": ["<up to 4 specific gaps or weaknesses>"],
+  "areas_to_improve": ["<up to 4 concrete, actionable items>"],
+  "study_suggestions": [
+    {"topic": "<topic>", "why": "<why it matters>", "priority": "<high|medium|low>"}
+  ],
+  "engagement": "<high|medium|low>",
+  "confidence": "<high|medium|low>"
+}"""
+
+# =============================================================================
 # LAMBDA HANDLER
 # =============================================================================
 
@@ -118,6 +180,12 @@ def lambda_handler(event, context):
             return handle_per_problem(body)
         elif mode == 'synthesis':
             return handle_synthesis(body)
+        elif mode == 'knowledge_check':
+            return handle_knowledge_check(body)
+        elif mode in ('training_summary', 'call_summary_email'):
+            return handle_training_summary(body)
+        elif mode == 'general':
+            return handle_general(body)
         else:
             return handle_full(body)
 
@@ -208,6 +276,61 @@ def handle_full(body):
         summary['final_code'] = final_code
 
     return success_response(summary, usage)
+
+
+def handle_knowledge_check(body):
+    """Analyze a product knowledge check session and produce a graded report."""
+    transcript = body.get('transcript', [])
+    product = body.get('product', 'AT&T Product')
+    questions = body.get('questions', [])
+
+    if not transcript:
+        return error_response('Missing: transcript', 'VALIDATION_ERROR')
+
+    q_block = '\n'.join(f'{i+1}. {q}' for i, q in enumerate(questions)) if questions else 'Not provided'
+    user_prompt = (
+        f"Product assessed: {product}\n\n"
+        f"Questions asked during the session:\n{q_block}\n\n"
+        f"## Transcript\n{format_transcript(transcript)}\n\n"
+        f"Analyze this knowledge check and output the JSON report."
+    )
+
+    result, usage = call_bedrock(user_prompt, KNOWLEDGE_CHECK_SYSTEM_PROMPT, max_tokens=1500)
+    return success_response(result, usage)
+
+
+def handle_training_summary(body):
+    """Generate a prose summary of a general training session."""
+    transcript = body.get('transcript', [])
+
+    if not transcript:
+        return error_response('Missing: transcript', 'VALIDATION_ERROR')
+
+    user_prompt = (
+        f"## Transcript\n{format_transcript(transcript)}\n\n"
+        f"Write the call summary and output the JSON."
+    )
+
+    result, usage = call_bedrock(user_prompt, TRAINING_SUMMARY_SYSTEM_PROMPT, max_tokens=500)
+    return success_response(result, usage)
+
+
+def handle_general(body):
+    """Analyze a general sales training session and produce a structured report."""
+    transcript = body.get('transcript', [])
+    context = body.get('context', '')
+
+    if not transcript:
+        return error_response('Missing: transcript', 'VALIDATION_ERROR')
+
+    user_prompt = (
+        (f"Session context: {context}\n\n" if context else '') +
+        f"## Transcript\n{format_transcript(transcript)}\n\n"
+        f"Analyze this sales training session and output the JSON report."
+    )
+
+    result, usage = call_bedrock(user_prompt, GENERAL_ANALYSIS_SYSTEM_PROMPT, max_tokens=1200)
+    return success_response(result, usage)
 
 
 # =============================================================================

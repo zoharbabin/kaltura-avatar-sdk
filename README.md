@@ -276,7 +276,18 @@ sdk.clearTranscript();
 
 ## Demo Applications
 
-Both demos share a single Lambda backend for AI-powered analysis. See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment.
+All demos share a single Lambda backend for AI-powered analysis. See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment.
+
+### AT&T Seller Hub Demo
+
+The `att_lily/` folder contains an AI-powered sales training platform with a general coach and nine product knowledge checks. See [`att_lily/README.md`](att_lily/README.md) for detailed documentation.
+
+**Features:** Dual avatar instances (coach + quiz), DPP-driven persona switching (Lily/Morgan/Alex/Casey), 9 focused knowledge checks, AI-graded reports with scoring, context-aware SME escalation, live transcripts.
+
+```bash
+python3 -m http.server 8080
+# Open http://localhost:8080/att_lily/
+```
 
 ### HR Avatar Demo
 
@@ -364,12 +375,15 @@ await sdk.start();
 
 ### Analysis Backend
 
-Both demos share a single Lambda function (`hr_avatar/lambda/`) that routes requests based on the `analysis_mode` field:
+All demos share a single Lambda function (`hr_avatar/lambda/`) that routes requests based on the `analysis_mode` field:
 
 | Mode | Used By | Description |
 |------|---------|-------------|
 | `per_problem` | Code Interview | Analyze one coding problem (~5s) |
 | `synthesis` | Code Interview | Synthesize results into overall assessment (~8s) |
+| `knowledge_check` | AT&T Seller Hub | Product knowledge check report (~8s) |
+| `general` | AT&T Seller Hub | Coaching session report with scoring (~8s) |
+| `training_summary` | AT&T Seller Hub | Prose summary for email delivery (~5s) |
 | *(default)* | HR Avatar | Full single-call analysis (v4.1 schema) |
 
 ```bash
@@ -410,6 +424,19 @@ See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment de
 | `hr_avatar/call_summary.schema.json` | Call analysis output schema (v4.1) |
 | `hr_avatar/dynamic_page_prompt_samples/` | Sample scenario JSON files |
 
+### AT&T Seller Hub Demo
+
+| File | Description |
+|------|-------------|
+| `att_lily/README.md` | AT&T Seller Hub documentation |
+| `att_lily/index.html` | Page structure (login, hero avatar, cards, modals) |
+| `att_lily/att-demo.js` | Application logic (dual SDK, cards, analysis) |
+| `att_lily/att-demo.css` | Dark theme with AT&T branding |
+| `att_lily/base_prompt.txt` | Multi-persona system prompt (Lily, Morgan, Alex, Casey) |
+| `att_lily/dynamic_page_prompt.schema.json` | DPP v1 JSON Schema |
+| `att_lily/dynamic_page_prompt_samples/` | 9 knowledge check DPP files |
+| `att_lily/WALKTHROUGH.md` | Detailed refactoring walkthrough |
+
 ### Code Interview Demo
 
 | File | Description |
@@ -427,7 +454,7 @@ See [`hr_avatar/lambda/README.md`](hr_avatar/lambda/README.md) for deployment de
 | File | Description |
 |------|-------------|
 | `hr_avatar/lambda/README.md` | Lambda deployment guide + API reference |
-| `hr_avatar/lambda/lambda_function.py` | Bedrock Claude analysis — 3 modes (per-problem, synthesis, full) |
+| `hr_avatar/lambda/lambda_function.py` | Bedrock Claude analysis — 6 modes (per-problem, synthesis, knowledge_check, general, training_summary, full) |
 | `hr_avatar/lambda/benchmark.py` | Performance benchmark for iterative pipeline |
 | `hr_avatar/lambda/deploy.sh` | Automated deployment script |
 | `hr_avatar/lambda/cleanup.sh` | Resource cleanup script |

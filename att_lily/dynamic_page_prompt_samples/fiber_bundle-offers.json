@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T FIBER CHECK"],
+  "product": "AT&T Fiber Bundles",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "What bundling options are available with AT&T Fiber and how do they save the customer money?",
+      "A customer already has AT&T Wireless. How do you pitch adding Fiber to get the multi-product discount?",
+      "How does DIRECTV STREAM integrate with AT&T Fiber, and what's the value proposition?",
+      "Walk me through how you'd present a complete home solution: Fiber, Wireless, and streaming.",
+      "A customer says they only want internet and nothing else. How do you plant the seed for a bundle without being pushy?"
+    ]
+  }
+}

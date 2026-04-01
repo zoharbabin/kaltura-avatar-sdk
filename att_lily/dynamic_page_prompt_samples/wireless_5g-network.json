@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T WIRELESS CHECK"],
+  "product": "AT&T 5G & Network Coverage",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "Explain the difference between AT&T 5G and 5G+ to a customer in simple terms.",
+      "A customer asks why they should care about 5G if their current phone works fine on 4G LTE. What do you say?",
+      "How does AT&T's network coverage compare to competitors, and what's our strongest talking point?",
+      "A customer in a rural area is worried about 5G availability. How do you address that concern?",
+      "What does AT&T's FirstNet partnership mean, and how can you use it as a credibility anchor in sales conversations?"
+    ]
+  }
+}

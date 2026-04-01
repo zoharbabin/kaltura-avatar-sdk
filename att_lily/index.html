@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AT&T Seller Hub</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="att-demo.css?v=1.0.2">
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/31/AT%26T_logo_2016.svg"
+                 alt="AT&T" class="login-logo">
+            <h1 class="login-title">AT&amp;T Seller Hub</h1>
+            <p class="login-subtitle">Sign in to access your AI-powered training platform</p>
+            <form class="login-form" id="login-form" novalidate>
+                <div class="login-field">
+                    <label for="login-email">Work Email</label>
+                    <input type="email" id="login-email" placeholder="you@att.com"
+                           required autocomplete="email">
+                    <span class="login-error" id="login-error"></span>
+                </div>
+                <button type="submit" class="login-btn">Sign In &#8594;</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Shell -->
+    <div class="app">
+
+        <!-- Header -->
+        <header>
+            <div class="att-logo">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/31/AT%26T_logo_2016.svg"
+                     alt="AT&T" height="48">
+            </div>
+            <h1>Welcome to the AT&amp;T Seller Hub</h1>
+            <p>Your AI-powered sales training &amp; knowledge hub</p>
+        </header>
+
+        <!-- Main Avatar Hero -->
+        <div class="avatar-hero">
+            <div class="avatar-hero-wave avatar-hero-wave-left"></div>
+            <div class="avatar-hero-wave avatar-hero-wave-right"></div>
+            <div id="avatar-container">
+                <!-- SDK replaces contents with its iframe -->
+            </div>
+            <div class="sme-overlay" id="main-sme-overlay">
+                <button class="sme-btn" id="main-sme-btn">&#128222; Talk to SME</button>
+            </div>
+        </div>
+
+        <!-- Main Avatar Transcript -->
+        <div class="transcript-panel">
+            <div class="transcript-header">
+                <h3>Conversation Transcript</h3>
+                <div class="transcript-actions">
+                    <button class="btn btn-secondary" id="main-download-btn" disabled>Download TXT</button>
+                </div>
+            </div>
+            <div class="transcript-content" id="main-transcript-content">
+                <div class="transcript-empty">Conversation transcript will appear here...</div>
+            </div>
+        </div>
+
+        <!-- Knowledge Check Cards -->
+        <section class="knowledge-checks">
+            <h2>Product Knowledge Checks</h2>
+            <p class="section-subtitle">Test your product knowledge with an AI-powered quiz. Click a card to begin.</p>
+            <div class="cards-grid" id="cards-grid">
+                <!-- Rendered by JS from CHECKS config -->
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Knowledge Check Modal -->
+    <div id="check-modal" class="check-modal">
+        <div class="check-modal-content">
+            <div class="check-modal-header">
+                <div class="check-modal-title-row">
+                    <span id="check-modal-badge" class="product-badge"></span>
+                    <h3 id="check-modal-title">Knowledge Check</h3>
+                </div>
+                <button class="check-modal-close" id="check-modal-close">&#10005;</button>
+            </div>
+            <div class="check-modal-body">
+                <div id="check-avatar-container">
+                    <!-- SDK replaces contents with its iframe -->
+                </div>
+                <div class="sme-overlay" id="check-sme-overlay">
+                    <button class="sme-btn" id="check-sme-btn">&#128222; Talk to SME</button>
+                </div>
+            </div>
+            <div class="transcript-panel check-transcript-panel">
+                <div class="transcript-header">
+                    <h3>Session Transcript</h3>
+                    <div class="transcript-actions">
+                        <button class="btn btn-secondary" id="check-download-btn" disabled>Download TXT</button>
+                    </div>
+                </div>
+                <div class="transcript-content" id="check-transcript-content">
+                    <div class="transcript-empty">Transcript will appear here once the session begins...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Loading Overlay -->
+    <div id="report-loading" class="report-loading-overlay" style="display:none;">
+        <div class="report-loading-box">
+            <div class="spinner"></div>
+            <p>Analyzing your session&hellip;</p>
+            <small>Generating your personalized report</small>
+        </div>
+    </div>
+
+    <!-- Session Report Modal -->
+    <div id="report-modal" class="report-modal">
+        <div class="report-modal-content">
+            <div class="report-modal-header">
+                <div class="report-header-left">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/31/AT%26T_logo_2016.svg"
+                         alt="AT&T" height="26">
+                    <h3 id="report-modal-title">Session Report</h3>
+                </div>
+                <button class="check-modal-close" id="report-modal-close">&#10005;</button>
+            </div>
+            <div class="report-modal-body" id="report-modal-body">
+                <!-- Populated by JS -->
+            </div>
+            <div class="report-modal-footer">
+                <button class="btn btn-secondary" id="report-download-btn">&#11015; Download Report</button>
+                <button class="btn-check report-close-btn" id="report-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SME Toast Notification -->
+    <div id="sme-toast" class="sme-toast">
+        <div class="sme-toast-header">
+            <div class="sme-toast-icon">&#128222;</div>
+            <span class="sme-toast-title" id="sme-toast-title">Connecting to Expert...</span>
+        </div>
+        <div class="sme-toast-body" id="sme-toast-body">
+            In production, this routes to your nearest product specialist via Teams or Slack.
+        </div>
+        <div class="sme-toast-progress"><div class="sme-toast-progress-bar"></div></div>
+    </div>
+
+    <script src="../kaltura-avatar-sdk.min.js"></script>
+    <script src="att-demo.js?v=1.0.2"></script>
+</body>
+</html>

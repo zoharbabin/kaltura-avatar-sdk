@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T CC CHECK"],
+  "product": "Five9 & AI Capabilities",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "Explain the AT&T and Five9 partnership. What does Five9 bring to the table?",
+      "What's the difference between a traditional IVR and Five9's AI-powered agents? How do you explain that to a customer?",
+      "Describe the Five9 AI Insights 'Spotlight' feature and why it's a differentiator.",
+      "How does AI-powered real-time agent assist reduce average handle time? Give me a specific example.",
+      "A customer is skeptical about AI replacing human agents. How do you reframe that conversation?"
+    ]
+  }
+}

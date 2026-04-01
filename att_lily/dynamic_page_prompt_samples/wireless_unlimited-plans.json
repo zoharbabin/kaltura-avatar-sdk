@@ -1,0 +1,15 @@
+{
+  "v": "1",
+  "inst": ["AT&T WIRELESS CHECK"],
+  "product": "AT&T Unlimited Plans",
+  "candidate": { "name": "", "email": "" },
+  "mtg": {
+    "q_add": [
+      "Walk me through the current AT&T unlimited plan tiers. What are the key differences a customer should know about?",
+      "A family of four walks in looking for a plan. How would you determine which unlimited tier is the best fit?",
+      "A customer says they don't need unlimited data because they're always on Wi-Fi. How do you handle that objection?",
+      "What hotspot features are included across the unlimited tiers, and why does that matter for positioning?",
+      "How would you pitch AT&T Unlimited Premium over a competitor's top-tier plan?"
+    ]
+  }
+}
