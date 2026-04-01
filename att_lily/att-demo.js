@@ -24,7 +24,7 @@
  * Update these values for different deployments.
  */
 const CONFIG = Object.freeze({
-    VERSION: '1.1.0',
+    VERSION: '1.2.0',
 
     // Kaltura Avatar SDK credentials — main hero (Lily) and knowledge check (Morgan/Alex/Casey)
     MAIN_AVATAR: Object.freeze({
@@ -73,6 +73,7 @@ const CHECKS = Object.freeze([
         title: 'Unlimited Plans',
         description: 'AT&T unlimited plan tiers, features, and competitive positioning.',
         icon: '\uD83D\uDCF6',
+        image: 'https://images.unsplash.com/photo-1676300463288-0a1183aef2fa?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/wireless_unlimited-plans.json',
         product: 'AT&T Unlimited Plans',
         badge: 'wireless',
@@ -83,6 +84,7 @@ const CHECKS = Object.freeze([
         title: '5G & Network',
         description: '5G vs 5G+, coverage positioning, and FirstNet credibility anchors.',
         icon: '\uD83D\uDCE1',
+        image: 'https://images.unsplash.com/photo-1733040581568-18d93f969d2c?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/wireless_5g-network.json',
         product: 'AT&T 5G & Network Coverage',
         badge: 'wireless',
@@ -93,6 +95,7 @@ const CHECKS = Object.freeze([
         title: 'Device Trade-In',
         description: 'Trade-in process, AT&T Next Up, and device protection positioning.',
         icon: '\uD83D\uDCF1',
+        image: 'https://images.unsplash.com/photo-1691073112675-9685bc6779bf?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/wireless_device-tradein.json',
         product: 'AT&T Device Trade-In & Upgrades',
         badge: 'wireless',
@@ -105,6 +108,7 @@ const CHECKS = Object.freeze([
         title: 'Fiber Internet Plans',
         description: 'Speed tiers, equipment, symmetrical speeds, and remote worker pitch.',
         icon: '\uD83C\uDF10',
+        image: 'https://images.unsplash.com/photo-1606778303039-9fc1488b1d8a?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/fiber_internet-plans.json',
         product: 'AT&T Fiber Internet Plans',
         badge: 'fiber',
@@ -115,6 +119,7 @@ const CHECKS = Object.freeze([
         title: 'Fiber vs Cable',
         description: 'Technical advantages, peak performance, and competitive objections.',
         icon: '\u26A1',
+        image: 'https://images.unsplash.com/photo-1717295248494-937c3a5655b1?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/fiber_vs-cable.json',
         product: 'AT&T Fiber vs Cable',
         badge: 'fiber',
@@ -125,6 +130,7 @@ const CHECKS = Object.freeze([
         title: 'Bundle Offers',
         description: 'Multi-product bundles, DIRECTV STREAM, and whole-home solutions.',
         icon: '\uD83D\uDCE6',
+        image: 'https://images.unsplash.com/photo-1758687125679-d000e186e09b?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/fiber_bundle-offers.json',
         product: 'AT&T Fiber Bundles',
         badge: 'fiber',
@@ -137,6 +143,7 @@ const CHECKS = Object.freeze([
         title: 'CCaaS Overview',
         description: 'What CCaaS is, ideal customer profiles, and cloud migration benefits.',
         icon: '\uD83C\uDFE2',
+        image: 'https://images.unsplash.com/photo-1629904869392-ae2a682d4d01?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/cc_ccaas-overview.json',
         product: 'AT&T CCaaS Portfolio',
         badge: 'cc',
@@ -147,6 +154,7 @@ const CHECKS = Object.freeze([
         title: 'Five9 & AI',
         description: 'Five9 partnership, AI agents vs IVR, and Spotlight feature.',
         icon: '\uD83E\uDD16',
+        image: 'https://images.unsplash.com/photo-1644300616688-90b3f5f7792a?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/cc_five9-ai.json',
         product: 'Five9 & AI Capabilities',
         badge: 'cc',
@@ -157,6 +165,7 @@ const CHECKS = Object.freeze([
         title: 'Solution Mapping',
         description: 'Customer routing, four pillars, and discovery for pain points.',
         icon: '\uD83D\uDDFA\uFE0F',
+        image: 'https://images.unsplash.com/photo-1758873268998-2f77c2d38862?w=800&h=400&fit=crop&auto=format',
         file: 'dynamic_page_prompt_samples/cc_solution-mapping.json',
         product: 'AT&T Contact Center Solution Mapping',
         badge: 'cc',
@@ -736,10 +745,15 @@ async function startMainAvatar() {
 function renderCards() {
     ui.cardsGrid.innerHTML = CHECKS.map(check => `
         <div class="check-card" data-check-id="${escapeHtml(check.id)}">
-            <div class="check-card-icon">${check.icon}</div>
-            <h3>${escapeHtml(check.title)}</h3>
-            <p>${escapeHtml(check.description)}</p>
-            <span class="product-badge badge-${escapeHtml(check.badge)}">${escapeHtml(check.badge)}</span>
+            <div class="check-card-image">
+                <img src="${check.image}" alt="${escapeHtml(check.title)}" loading="lazy">
+            </div>
+            <div class="check-card-body">
+                <span class="product-badge badge-${escapeHtml(check.badge)}">${escapeHtml(check.badge)}</span>
+                <h3>${escapeHtml(check.title)}</h3>
+                <p>${escapeHtml(check.description)}</p>
+                <span class="check-card-cta">Start Knowledge Check &rarr;</span>
+            </div>
         </div>
     `).join('');
 
