@@ -29,11 +29,12 @@ The Lambda supports six analysis modes, selected by the `analysis_mode` field in
 | `knowledge_check` | AT&T Seller Hub | Product knowledge check report with grading | 1500 |
 | `general` | AT&T Seller Hub | Structured coaching session report with scoring | 1200 |
 | `training_summary` | AT&T Seller Hub | Prose summary suitable for email delivery | 500 |
+| `send_report_email` | AT&T Seller Hub | Email a branded HTML report to the user via SES | N/A |
 | *(default)* | HR Avatar | Full single-call analysis using `HR_SYSTEM_PROMPT` (v4.1) | 2048 (env var) |
 
 `call_summary_email` is accepted as an alias for `training_summary` for backward compatibility.
 
-The Code Interview client calls `per_problem` in parallel for each problem (fast, ~5s each), then one `synthesis` call (~8s). The HR Avatar client sends a single request with no `analysis_mode` (falls through to the default full-analysis path). The AT&T Seller Hub client uses `general` for coaching sessions and `knowledge_check` for quizzes.
+The Code Interview client calls `per_problem` in parallel for each problem (fast, ~5s each), then one `synthesis` call (~8s). The HR Avatar client sends a single request with no `analysis_mode` (falls through to the default full-analysis path). The AT&T Seller Hub client uses `general` for coaching sessions, `knowledge_check` for quizzes, and `send_report_email` to automatically email reports to the user.
 
 ## Features
 

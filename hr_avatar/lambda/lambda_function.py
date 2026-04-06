@@ -12,20 +12,25 @@ Analysis modes (selected by the `analysis_mode` request field):
   - "training_summary":  Generate a prose training session summary (~5s, max_tokens=500)
   - "call_summary_email": Alias for training_summary (Alon's original main-avatar post-call mode)
   - "general":           Structured sales training session report (~8s, max_tokens=1200)
+  - "send_report_email": Email a formatted report to the user via SES
   - (default):           Full single-call HR analysis using HR_SYSTEM_PROMPT (v4.1 schema, max_tokens from env)
 
 The Code Interview client fires N parallel per_problem calls then one synthesis call.
 The HR Avatar client sends a single request with no analysis_mode (hits the default path).
-The AT&T Seller Hub sends knowledge_check (for quizzes) or general (for coaching sessions).
+The AT&T Seller Hub sends knowledge_check (for quizzes), general (for coaching sessions),
+or send_report_email (fire-and-forget after report is shown).
 
 Environment Variables:
     MODEL_ID:    Bedrock model ID (default: claude-3-haiku)
     MAX_TOKENS:  Max output tokens for default/full mode (default: 2048)
     TEMPERATURE: Model temperature (default: 0.3)
+    SES_FROM_EMAIL: Verified SES sender address (default: noreply@avatardemo.att-sellerhub.com)
 """
 
 import json
 import os
+import re
+import html
 import boto3
 from botocore.config import Config
 
@@ -44,6 +49,9 @@ bedrock_config = Config(
 )
 
 bedrock = boto3.client('bedrock-runtime', config=bedrock_config)
+
+SES_FROM_EMAIL = os.environ.get('SES_FROM_EMAIL', 'noreply@avatardemo.att-sellerhub.com')
+ses = boto3.client('ses')
 
 # =============================================================================
 # CORS HEADERS
@@ -186,6 +194,8 @@ def lambda_handler(event, context):
             return handle_training_summary(body)
         elif mode == 'general':
             return handle_general(body)
+        elif mode == 'send_report_email':
+            return handle_send_report_email(body)
         else:
             return handle_full(body)
 
@@ -331,6 +341,215 @@ def handle_general(body):
 
     result, usage = call_bedrock(user_prompt, GENERAL_ANALYSIS_SYSTEM_PROMPT, max_tokens=1200)
     return success_response(result, usage)
+
+
+def handle_send_report_email(body):
+    """Send a branded HTML report email to the user via SES."""
+    to_email = body.get('to_email', '').strip()
+    report = body.get('report', {})
+    title = body.get('title', 'Session Report')
+
+    if not to_email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', to_email):
+        return error_response('Missing or invalid to_email', 'VALIDATION_ERROR')
+    if not report:
+        return error_response('Missing report data', 'VALIDATION_ERROR')
+
+    html_body = build_report_email_html(report, title)
+    subject = f'AT&T Seller Hub — {title} Report'
+
+    try:
+        ses.send_email(
+            Source=f'AT&T Seller Hub <{SES_FROM_EMAIL}>',
+            Destination={'ToAddresses': [to_email]},
+            Message={
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {
+                    'Html': {'Data': html_body, 'Charset': 'UTF-8'}
+                }
+            }
+        )
+    except Exception as e:
+        print(f'SES send error: {e}')
+        return error_response(f'Email send failed: {str(e)}', 'SES_ERROR', 500)
+
+    return {
+        'statusCode': 200,
+        'headers': CORS_HEADERS,
+        'body': json.dumps({'success': True, 'message': f'Report emailed to {to_email}'})
+    }
+
+
+def build_report_email_html(report, title):
+    """Build an AT&T-branded HTML email from a report JSON object."""
+    h = html.escape
+    grade = h(str(report.get('grade', 'N/A')))
+    score = int(report.get('overall_score', report.get('score', 0)) or 0)
+    summary = h(str(report.get('summary', report.get('summary_text', ''))))
+    product = h(str(report.get('product', report.get('session_type', title))))
+    readiness = report.get('readiness', '')
+    engagement = h(str(report.get('engagement', '')))
+    confidence = h(str(report.get('confidence', '')))
+
+    # Grade color mapping (AT&T brand)
+    gc = '#666'
+    if grade and grade[0] == 'A': gc = '#6EBB1F'
+    elif grade and grade[0] == 'B': gc = '#067AB4'
+    elif grade and grade[0] == 'C': gc = '#FF9900'
+    elif grade and grade[0] == 'D': gc = '#FF7200'
+    elif grade and grade[0] == 'F': gc = '#B30A3C'
+
+    # Readiness badge
+    readiness_map = {
+        'ready_to_sell': ('&#10003; Ready to Sell', '#6EBB1F'),
+        'needs_review': ('&#9888; Needs Review', '#FF9900'),
+        'not_ready': ('&#10007; Not Ready', '#B30A3C')
+    }
+    readiness_label, readiness_color = readiness_map.get(readiness, ('', '#999'))
+
+    def bullet_list(items, fallback='None noted'):
+        if not items:
+            return f'<li style="color:#999;">{fallback}</li>'
+        out = []
+        for item in items:
+            if isinstance(item, dict):
+                priority = h(str(item.get('priority', '')))
+                topic = h(str(item.get('topic', '')))
+                why = h(str(item.get('why', '')))
+                badge_color = '#067AB4' if priority == 'high' else '#FF9900' if priority == 'medium' else '#999'
+                out.append(
+                    f'<li><span style="display:inline-block;padding:2px 8px;border-radius:10px;'
+                    f'font-size:11px;background:{badge_color};color:#fff;margin-right:6px;">'
+                    f'{priority}</span><strong>{topic}</strong> — {why}</li>'
+                )
+            else:
+                out.append(f'<li>{h(str(item))}</li>')
+        return '\n'.join(out)
+
+    # Question breakdown rows
+    q_rows = ''
+    for i, q in enumerate(report.get('question_breakdown', []), 1):
+        q_score = int(q.get('score', 0) or 0)
+        stars = '\u2605' * q_score + '\u2606' * (5 - q_score)
+        quality = str(q.get('quality', 'adequate'))
+        q_color = '#6EBB1F' if quality == 'strong' else '#FF9900' if quality == 'adequate' else '#B30A3C'
+        q_rows += f'''
+        <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:bold;color:#0C2577;">Q{i}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;">{h(str(q.get('question_summary', '')))}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eee;color:{q_color};letter-spacing:2px;">{stars}</td>
+        </tr>'''
+        if q.get('feedback'):
+            q_rows += f'''
+        <tr>
+            <td></td>
+            <td colspan="2" style="padding:4px 12px 12px;font-size:13px;color:#666;font-style:italic;">
+                {h(str(q['feedback']))}</td>
+        </tr>'''
+
+    # Metadata chips
+    meta_chips = ''
+    if engagement:
+        meta_chips += (
+            f'<span style="display:inline-block;padding:4px 12px;background:#f0f4f8;'
+            f'border-radius:16px;font-size:12px;margin-right:8px;color:#333;">'
+            f'Engagement: <strong>{engagement}</strong></span>'
+        )
+    if confidence:
+        meta_chips += (
+            f'<span style="display:inline-block;padding:4px 12px;background:#f0f4f8;'
+            f'border-radius:16px;font-size:12px;color:#333;">'
+            f'Confidence: <strong>{confidence}</strong></span>'
+        )
+
+    return f'''<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Verdana,Geneva,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr><td style="background:#0C2577;padding:24px 32px;">
+    <table width="100%"><tr>
+        <td><img src="https://upload.wikimedia.org/wikipedia/commons/3/31/AT%26T_logo_2016.svg" alt="AT&T" height="28" style="vertical-align:middle;"></td>
+        <td align="right" style="color:rgba(255,255,255,0.7);font-size:12px;">Seller Hub Report</td>
+    </tr></table>
+</td></tr>
+
+<!-- Grade Hero -->
+<tr><td style="padding:32px;text-align:center;border-bottom:1px solid #eee;">
+    <div style="display:inline-block;width:100px;height:100px;border-radius:50%;border:4px solid {gc};text-align:center;line-height:1;">
+        <div style="font-size:36px;font-weight:bold;color:{gc};margin-top:18px;">{grade}</div>
+        <div style="font-size:14px;color:{gc};">{score}/100</div>
+    </div>
+    <div style="margin-top:16px;font-size:18px;font-weight:bold;color:#0C2577;">{product}</div>
+    {f'<div style="margin-top:8px;"><span style="display:inline-block;padding:4px 14px;border-radius:16px;font-size:12px;font-weight:bold;background:{readiness_color};color:#fff;">{readiness_label}</span></div>' if readiness_label else ''}
+    {f'<div style="margin-top:10px;">{meta_chips}</div>' if meta_chips else ''}
+</td></tr>
+
+<!-- Summary -->
+{f"""<tr><td style="padding:24px 32px;">
+    <p style="color:#333;font-size:14px;line-height:1.7;margin:0;">{summary}</p>
+</td></tr>""" if summary else ''}
+
+<!-- 2x2 Grid -->
+<tr><td style="padding:0 24px;">
+<table width="100%" cellpadding="0" cellspacing="8">
+<tr>
+<td width="50%" valign="top" style="background:#f0f9e8;border-radius:8px;padding:16px;">
+    <div style="font-size:13px;font-weight:bold;color:#4a8c1c;margin-bottom:8px;">&#9989; Strong Spots</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.8;">
+        {bullet_list(report.get('strong_spots'))}
+    </ul>
+</td>
+<td width="50%" valign="top" style="background:#fff5f5;border-radius:8px;padding:16px;">
+    <div style="font-size:13px;font-weight:bold;color:#B30A3C;margin-bottom:8px;">&#9888; Weak Spots</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.8;">
+        {bullet_list(report.get('weak_spots'))}
+    </ul>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" style="background:#f0f4ff;border-radius:8px;padding:16px;">
+    <div style="font-size:13px;font-weight:bold;color:#067AB4;margin-bottom:8px;">&#128200; Areas to Improve</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.8;">
+        {bullet_list(report.get('areas_to_improve'))}
+    </ul>
+</td>
+<td width="50%" valign="top" style="background:#fffbf0;border-radius:8px;padding:16px;">
+    <div style="font-size:13px;font-weight:bold;color:#FF9900;margin-bottom:8px;">&#128218; Study Suggestions</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;line-height:1.8;">
+        {bullet_list(report.get('study_suggestions'))}
+    </ul>
+</td>
+</tr>
+</table>
+</td></tr>
+
+<!-- Question Breakdown -->
+{f"""<tr><td style="padding:24px 32px 8px;">
+    <div style="font-size:15px;font-weight:bold;color:#0C2577;margin-bottom:12px;">Question Breakdown</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;color:#333;">
+        <tr style="background:#f4f6f8;">
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#666;"></th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#666;">Question</th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#666;">Rating</th>
+        </tr>
+        {q_rows}
+    </table>
+</td></tr>""" if q_rows else ''}
+
+<!-- Footer -->
+<tr><td style="padding:24px 32px;background:#f4f6f8;text-align:center;border-top:1px solid #eee;">
+    <p style="margin:0;font-size:11px;color:#999;line-height:1.6;">
+        This report was generated automatically by the AT&T Seller Hub AI training platform.<br>
+        For questions, contact your training manager.
+    </p>
+</td></tr>
+
+</table>
+</td></tr></table>
+</body></html>'''
 
 
 # =============================================================================

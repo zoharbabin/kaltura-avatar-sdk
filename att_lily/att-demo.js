@@ -1074,6 +1074,9 @@ function hideReportLoading() {
 function showReport(report, title) {
     ui.reportModalTitle.textContent = title;
 
+    // Fire-and-forget: email the report to the user
+    emailReport(report, title);
+
     const score = Number(report.overall_score ?? report.score) || 0;
     const grade = report.grade || '';
     const summary = report.summary || report.summary_text || '';
@@ -1142,6 +1145,30 @@ function showReport(report, title) {
 
     ui.reportModalBody.innerHTML = html;
     ui.reportModal.classList.add('active');
+}
+
+/**
+ * Email the report to the logged-in user (fire-and-forget).
+ * @param {Object} report - Report data
+ * @param {string} title - Report title
+ */
+async function emailReport(report, title) {
+    if (!state.userEmail || !report) return;
+
+    try {
+        await fetch(CONFIG.ANALYSIS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                analysis_mode: 'send_report_email',
+                to_email: state.userEmail,
+                report,
+                title
+            })
+        });
+    } catch (err) {
+        console.warn('[Email] Report email failed:', err.message);
+    }
 }
 
 /**

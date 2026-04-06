@@ -10,13 +10,13 @@ Built as a reference implementation demonstrating:
 
 ## Screenshots
 
-| Login | Coaching (Lily) | Knowledge Check Modal |
+| Login | Coaching (Lily) | Knowledge Check Cards |
 |-------|----------------|----------------------|
-| ![Login](../att-lily-app-shell.png) | ![SME Button](../att-lily-sme-visible.png) | ![Check Modal](../att-lily-check-modal.png) |
+| ![Login](../att-lily-login.png) | ![Coaching](../att-lily-coaching.png) | ![Cards](../att-lily-cards.png) |
 
-| SME Toast | Report |
-|-----------|--------|
-| ![Toast](../att-lily-toast-visible.png) | *(generated after each session)* |
+Full app layout:
+
+![App Shell](../att-lily-app-shell.png)
 
 ## Quick Start
 
@@ -81,6 +81,7 @@ Both coaching sessions and knowledge checks produce structured reports with:
 - Readiness assessment (Ready to Sell / Needs Review / Not Ready)
 - Strong spots, weak spots, areas to improve, study suggestions with priority
 - Per-question star ratings and feedback (knowledge checks only)
+- Automatic email delivery — every report is sent to the user's login email as a branded HTML email via AWS SES
 
 ### SME Escalation
 When a user says phrases like "I need help" or "I don't know," a context-aware button appears:
@@ -97,7 +98,7 @@ Real-time conversation recording for both main and check sessions, downloadable 
 att_lily/
 ├── index.html                        # Page structure (login, hero, cards, modals)
 ├── att-demo.js                       # Application logic (1,285 lines)
-├── att-demo.css                      # AT&T branded dark theme
+├── att-demo.css                      # AT&T branded light theme (official brand guidelines)
 ├── base_prompt.txt                   # Multi-persona system prompt
 ├── dynamic_page_prompt.schema.json   # DPP v1 JSON Schema
 ├── WALKTHROUGH.md                    # Detailed comparison with original version
@@ -189,6 +190,7 @@ Uses the shared Lambda function at [`hr_avatar/lambda/`](../hr_avatar/lambda/). 
 |------|---------|--------|
 | `general` | Main coaching session ends | Score, grade, strengths, weaknesses, study suggestions |
 | `knowledge_check` | Knowledge check session ends | Score, grade, per-question breakdown, readiness assessment |
+| `send_report_email` | Automatically after any report is shown | Branded HTML email sent to user via SES |
 
 See [`hr_avatar/lambda/README.md`](../hr_avatar/lambda/README.md) for API documentation and deployment.
 
