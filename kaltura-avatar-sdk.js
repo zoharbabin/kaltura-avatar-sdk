@@ -1,5 +1,5 @@
 /*!
- * Kaltura Avatar SDK v1.0.0
+ * Kaltura Avatar SDK v1.1.0
  *
  * Embed Kaltura AI Avatar conversations in any website.
  * Zero dependencies. Works with any framework.
@@ -483,7 +483,7 @@
     // Static properties
     KalturaAvatarSDK.Events = Events;
     KalturaAvatarSDK.State = State;
-    KalturaAvatarSDK.VERSION = '1.0.0';
+    KalturaAvatarSDK.VERSION = '1.1.0';
 
     return KalturaAvatarSDK;
 }));

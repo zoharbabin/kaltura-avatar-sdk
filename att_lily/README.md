@@ -12,11 +12,11 @@ Built as a reference implementation demonstrating:
 
 | Login | Coaching (Lily) | Knowledge Check Cards |
 |-------|----------------|----------------------|
-| ![Login](../att-lily-login.png) | ![Coaching](../att-lily-coaching.png) | ![Cards](../att-lily-cards.png) |
+| ![Login](../docs/images/att-lily-login.png) | ![Coaching](../docs/images/att-lily-coaching.png) | ![Cards](../docs/images/att-lily-cards.png) |
 
 Full app layout:
 
-![App Shell](../att-lily-app-shell.png)
+![App Shell](../docs/images/att-lily-app-shell.png)
 
 ## Quick Start
 

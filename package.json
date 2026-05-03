@@ -1,6 +1,6 @@
 {
   "name": "kaltura-avatar-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Kaltura Avatar SDK - Embed AI avatar conversations in any website",
   "main": "kaltura-avatar-sdk.js",
   "scripts": {

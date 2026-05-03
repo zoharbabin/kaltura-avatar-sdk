@@ -3,63 +3,680 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kaltura Avatar SDK Demo</title>
-    <link rel="stylesheet" href="demo.css">
+    <title>Kaltura Avatar SDK - Embed AI Avatar Conversations</title>
+    <meta name="description" content="Zero-dependency JavaScript SDK to embed AI avatar conversations in any website. ~4KB minified.">
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a6fd6;
+            --accent: #764ba2;
+            --bg: #0a0a14;
+            --surface: #12121f;
+            --surface-2: #1a1a2e;
+            --text: #e8e8f0;
+            --text-muted: #8888a0;
+            --border: #2a2a40;
+            --success: #4ade80;
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .container {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Nav */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+        }
+
+        nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        nav .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        nav .logo span { color: var(--primary); }
+
+        nav .links {
+            display: flex;
+            gap: 28px;
+            list-style: none;
+        }
+
+        nav .links a {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav .links a:hover { color: var(--text); text-decoration: none; }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 100px 0 80px;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .hero .badge strong { color: var(--success); }
+
+        .hero h1 {
+            font-size: clamp(36px, 5vw, 56px);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 560px;
+            margin: 0 auto 36px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--surface);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Code block */
+        .code-section {
+            padding: 0 0 80px;
+        }
+
+        .code-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            max-width: 680px;
+            margin: 0 auto;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text-muted);
+        }
+
+        .code-block .keyword { color: #c792ea; }
+        .code-block .string { color: #c3e88d; }
+        .code-block .comment { color: #546e7a; }
+        .code-block .func { color: #82aaff; }
+        .code-block .tag { color: #f07178; }
+        .code-block .attr { color: #ffcb6b; }
+
+        /* Features */
+        .features {
+            padding: 80px 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 48px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+
+        .feature-card .icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Demos */
+        .demos {
+            padding: 80px 0;
+        }
+
+        .demos h2 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .demos .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 16px;
+            margin-bottom: 48px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+        }
+
+        .demo-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .demo-card .thumb {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+
+        .demo-card .body {
+            padding: 24px;
+        }
+
+        .demo-card .label {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .demo-card .label.sales { background: #1e3a5f; color: #60a5fa; }
+        .demo-card .label.hr { background: #1e3a2f; color: #4ade80; }
+        .demo-card .label.code { background: #3a1e3f; color: #c792ea; }
+        .demo-card .label.basic { background: #3a2e1e; color: #fbbf24; }
+
+        .demo-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .demo-card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .demo-card .demo-links {
+            display: flex;
+            gap: 12px;
+        }
+
+        .demo-card .demo-links a {
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: 6px;
+            background: var(--surface-2);
+            color: var(--primary);
+            border: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .demo-card .demo-links a:hover {
+            background: var(--border);
+            text-decoration: none;
+        }
+
+        /* Architecture */
+        .architecture {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .architecture h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .architecture .subtitle {
+            color: var(--text-muted);
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+
+        .arch-diagram {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            max-width: 720px;
+            margin: 0 auto;
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            text-align: left;
+            white-space: pre;
+            overflow-x: auto;
+            color: var(--text-muted);
+        }
+
+        /* Getting Started */
+        .getting-started {
+            padding: 80px 0;
+        }
+
+        .getting-started h2 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 48px;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .step {
+            text-align: center;
+            padding: 28px 20px;
+        }
+
+        .step .number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff;
+            font-weight: 700;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .step h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step p {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .step code {
+            display: inline-block;
+            margin-top: 8px;
+            background: var(--surface-2);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--success);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        footer a { color: var(--text-muted); }
+        footer a:hover { color: var(--text); }
+
+        footer .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero { padding: 60px 0 50px; }
+            nav .links { display: none; }
+            .demo-grid { grid-template-columns: 1fr; }
+            .arch-diagram { font-size: 11px; padding: 20px; }
+        }
+    </style>
 </head>
 <body>
-    <div class="app">
-        <header>
-            <h1>Kaltura Avatar SDK</h1>
-            <p>Embed AI avatar conversations in any website</p>
-        </header>
-
-        <!-- Avatar Display -->
-        <div id="avatar-container"></div>
-
-        <!-- Prompt Input -->
-        <div class="controls">
-            <input type="text" id="prompt-input" placeholder="Type a message to send..." disabled>
-            <button id="send-btn" disabled>Send</button>
+    <nav>
+        <div class="container">
+            <div class="logo"><span>Kaltura</span> Avatar SDK</div>
+            <ul class="links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#demos">Live Demos</a></li>
+                <li><a href="#getting-started">Get Started</a></li>
+                <li><a href="https://github.com/zoharbabin/kaltura-avatar-sdk">GitHub</a></li>
+            </ul>
         </div>
+    </nav>
 
-        <!-- Action Buttons -->
-        <div class="actions">
-            <button id="restart-btn" class="primary" disabled>Restart</button>
-            <button id="end-btn" class="danger" disabled>End</button>
-        </div>
-
-        <!-- Status Info -->
-        <div class="info">
-            <div class="info-item">
-                <label>Status:</label>
-                <span id="status">Loading...</span>
-            </div>
-            <div class="info-item">
-                <label>Avatar:</label>
-                <span id="avatar-name">--</span>
-            </div>
-            <div class="info-item">
-                <label>SDK:</label>
-                <span id="sdk-version">--</span>
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="badge"><strong>~4KB</strong> minified &middot; Zero dependencies &middot; Works everywhere</div>
+            <h1>Embed AI Avatar Conversations in Any Website</h1>
+            <p>A lightweight JavaScript SDK to add interactive AI avatars to your app. Real-time speech, dynamic context injection, and full event system.</p>
+            <div class="hero-buttons">
+                <a href="#demos" class="btn btn-primary">See Live Demos</a>
+                <a href="https://github.com/zoharbabin/kaltura-avatar-sdk" class="btn btn-secondary">View on GitHub</a>
             </div>
         </div>
+    </section>
 
-        <!-- Conversation Log -->
-        <div class="log">
-            <h3>Conversation</h3>
-            <div id="messages">
-                <div class="empty">Conversation will appear here...</div>
+    <!-- Quick Start Code -->
+    <section class="code-section">
+        <div class="container">
+            <div class="code-block">
+<pre><span class="comment">// 3 lines to get a talking avatar on your page</span>
+<span class="keyword">const</span> sdk = <span class="keyword">new</span> <span class="func">KalturaAvatarSDK</span>({
+  <span class="attr">clientId</span>: <span class="string">'YOUR_CLIENT_ID'</span>,
+  <span class="attr">flowId</span>: <span class="string">'YOUR_FLOW_ID'</span>,
+  <span class="attr">container</span>: <span class="string">'#avatar'</span>
+});
+
+<span class="keyword">await</span> sdk.<span class="func">start</span>();
+
+<span class="comment">// Listen to what the avatar says</span>
+sdk.<span class="func">on</span>(<span class="string">'agent-talked'</span>, (data) =&gt; {
+  console.<span class="func">log</span>(<span class="string">'Avatar:'</span>, data.agentContent);
+});
+
+<span class="comment">// Inject dynamic context at runtime</span>
+sdk.<span class="func">injectPrompt</span>(JSON.<span class="func">stringify</span>({ role: <span class="string">'interviewer'</span>, topic: <span class="string">'JavaScript'</span> }));</pre>
             </div>
         </div>
+    </section>
 
-        <!-- Events Log -->
-        <div class="events-panel">
-            <h3>Events</h3>
-            <div id="events" class="event-log"></div>
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>Built for Developers</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="icon">&#9889;</div>
+                    <h3>Zero Dependencies</h3>
+                    <p>No frameworks, no build tools, no npm install. Just one script tag and you're running.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#127911;</div>
+                    <h3>Real-Time Events</h3>
+                    <p>Full event system with typed payloads. Know exactly when the avatar speaks, the user responds, or state changes.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#128218;</div>
+                    <h3>Dynamic Page Prompt</h3>
+                    <p>Inject JSON context at runtime to customize avatar behavior per session, per user, per scenario.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#128196;</div>
+                    <h3>Built-in Transcripts</h3>
+                    <p>Automatic conversation recording with export to text, markdown, or JSON. Download or process programmatically.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#128736;</div>
+                    <h3>TypeScript Ready</h3>
+                    <p>Full type declarations included. Get autocomplete and type safety in any TypeScript project.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">&#127760;</div>
+                    <h3>Framework Agnostic</h3>
+                    <p>Works with React, Vue, Angular, Svelte, or plain HTML. UMD + ES Module support out of the box.</p>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <script src="kaltura-avatar-sdk.js"></script>
-    <script src="demo.js"></script>
+    <!-- Live Demos -->
+    <section class="demos" id="demos">
+        <div class="container">
+            <h2>Live Demos</h2>
+            <p class="subtitle">See what you can build with the SDK. Each demo is open source and fully documented.</p>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <img src="docs/images/att-lily-app-shell.png" alt="AT&T Seller Hub screenshot" class="thumb">
+                    <div class="body">
+                        <span class="label sales">Sales Training</span>
+                        <h3>AT&T Seller Hub</h3>
+                        <p>AI sales coach with 9 product knowledge checks, dual avatar instances, graded reports, and SME escalation.</p>
+                        <div class="demo-links">
+                            <a href="att_lily/">Live Demo</a>
+                            <a href="att_lily/README.md">Documentation</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card">
+                    <div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#1e3a2f,#0a0a14);">&#129489;&#8205;&#128188;</div>
+                    <div class="body">
+                        <span class="label hr">Human Resources</span>
+                        <h3>HR Avatar</h3>
+                        <p>Interview simulations, post-interview calls, and separation meetings with CV upload and AI call analysis.</p>
+                        <div class="demo-links">
+                            <a href="hr_avatar/">Live Demo</a>
+                            <a href="hr_avatar/README.md">Documentation</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card">
+                    <div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#3a1e3f,#0a0a14);">&#128187;</div>
+                    <div class="body">
+                        <span class="label code">Technical Interview</span>
+                        <h3>Code Interview</h3>
+                        <p>AI pair programming with Monaco editor, real-time code context injection, multi-problem sessions, and detailed reports.</p>
+                        <div class="demo-links">
+                            <a href="code_interview/">Live Demo</a>
+                            <a href="code_interview/README.md">Documentation</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="demo-card">
+                    <div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:48px;background:linear-gradient(135deg,#3a2e1e,#0a0a14);">&#128161;</div>
+                    <div class="body">
+                        <span class="label basic">Starter</span>
+                        <h3>Basic SDK Demo</h3>
+                        <p>Minimal example showing all SDK features: events, state tracking, prompt injection, and transcript recording.</p>
+                        <div class="demo-links">
+                            <a href="basic_demo/">Live Demo</a>
+                            <a href="https://github.com/zoharbabin/kaltura-avatar-sdk/blob/main/basic_demo/demo.js">Source</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Overview -->
+    <section class="architecture">
+        <div class="container">
+            <h2>How It Works</h2>
+            <p class="subtitle">The SDK manages an iframe connection to Kaltura's avatar platform.</p>
+            <div class="arch-diagram">Your App                    Kaltura Cloud              Analysis Backend
+&#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;    &#9484;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9488;
+&#9474;                  &#9474;    &#9474;                    &#9474;    &#9474;                &#9474;
+&#9474;  KalturaAvatarSDK &#9474;&#9472;&#9472;&#9472;&#9472;&#9474;  Avatar Engine     &#9474;    &#9474;  AWS Lambda    &#9474;
+&#9474;                  &#9474;    &#9474;  (Speech + Video)  &#9474;    &#9474;  (Bedrock)     &#9474;
+&#9474;  .injectPrompt() &#9474;    &#9474;                    &#9474;    &#9474;                &#9474;
+&#9474;  .on('event')    &#9474;    &#9474;  postMessage API   &#9474;    &#9474;  /analyze      &#9474;
+&#9474;  .getTranscript()&#9474;    &#9474;                    &#9474;    &#9474;  /synthesize   &#9474;
+&#9474;                  &#9474;&#9492;&#9472;&#9472;&#9472;&#9472;&#9474;                    &#9474;    &#9474;                &#9474;
+&#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;    &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;
+     iframe + postMessage             &#9474;                   POST transcript
+          &#9474;                            &#9474;                        &#9474;
+          &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;                        &#9474;
+                Events: agent-talked, user-transcription     &#9474;
+                DPP:    injectPrompt(JSON)         &#9492;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9496;</div>
+        </div>
+    </section>
+
+    <!-- Getting Started -->
+    <section class="getting-started" id="getting-started">
+        <div class="container">
+            <h2>Get Started in 5 Minutes</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="number">1</div>
+                    <h3>Include the SDK</h3>
+                    <p>Add one script tag. No build step required.</p>
+                    <code>&lt;script src="kaltura-avatar-sdk.min.js"&gt;</code>
+                </div>
+                <div class="step">
+                    <div class="number">2</div>
+                    <h3>Create & Start</h3>
+                    <p>Pass your credentials and a container element.</p>
+                    <code>new KalturaAvatarSDK({...}).start()</code>
+                </div>
+                <div class="step">
+                    <div class="number">3</div>
+                    <h3>Customize with DPP</h3>
+                    <p>Inject JSON context to shape avatar behavior.</p>
+                    <code>sdk.injectPrompt(json)</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/zoharbabin/kaltura-avatar-sdk">GitHub</a>
+                <a href="kaltura-avatar-sdk.d.ts">API Types</a>
+                <a href="https://github.com/zoharbabin/kaltura-avatar-sdk/issues">Issues</a>
+                <a href="LICENSE">MIT License</a>
+                <a href="CONTRIBUTING.md">Contributing</a>
+            </div>
+            <p>Non-official research SDK. For official Kaltura SDKs see <a href="https://github.com/kaltura">github.com/kaltura</a></p>
+        </div>
+    </footer>
 </body>
 </html>
