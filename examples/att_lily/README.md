@@ -1,6 +1,6 @@
 # AT&T Seller Hub Demo
 
-AI-powered sales training and knowledge assessment platform built with the [Kaltura Avatar SDK](../README.md). Features a general sales coach (Lily) and nine structured product knowledge checks across AT&T Wireless, Fiber, and Contact Center product lines.
+AI-powered sales training and knowledge assessment platform built with the [Kaltura Avatar SDK](../../README.md). Features a general sales coach (Lily) and nine structured product knowledge checks across AT&T Wireless, Fiber, and Contact Center product lines.
 
 Built as a reference implementation demonstrating:
 - Dual avatar instances with independent lifecycle management
@@ -12,11 +12,11 @@ Built as a reference implementation demonstrating:
 
 | Login | Coaching (Lily) | Knowledge Check Cards |
 |-------|----------------|----------------------|
-| ![Login](../docs/images/att-lily-login.png) | ![Coaching](../docs/images/att-lily-coaching.png) | ![Cards](../docs/images/att-lily-cards.png) |
+| ![Login](../../sdk/images/att-lily-login.png) | ![Coaching](../../sdk/images/att-lily-coaching.png) | ![Cards](../../sdk/images/att-lily-cards.png) |
 
 Full app layout:
 
-![App Shell](../docs/images/att-lily-app-shell.png)
+![App Shell](../../sdk/images/att-lily-app-shell.png)
 
 ## Quick Start
 
@@ -255,4 +255,4 @@ For a detailed walkthrough comparing this implementation with the original versi
 
 ## License
 
-[MIT](../LICENSE) — see the project root.
+[MIT](../../LICENSE) — see the project root.

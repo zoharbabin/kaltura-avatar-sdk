@@ -2,10 +2,10 @@
 
 ## Add a New Demo Application
 
-Each demo lives in its own directory at the project root. Follow this structure:
+Each demo lives in its own directory under `examples/`. Follow this structure:
 
 ```
-your_demo/
+examples/your_demo/
 ├── index.html              ← Entry point
 ├── your-demo.js            ← Application logic
 ├── your-demo.css           ← Styles
@@ -16,10 +16,10 @@ your_demo/
 
 ### Step-by-step
 
-1. **Create your directory** at the project root
-2. **Add an `index.html`** that loads the SDK from the parent directory:
+1. **Create your directory** under `examples/`
+2. **Add an `index.html`** that loads the SDK:
    ```html
-   <script src="../kaltura-avatar-sdk.min.js"></script>
+   <script src="../../sdk/kaltura-avatar-sdk.min.js"></script>
    ```
 3. **Write your `base_prompt.txt`** defining the avatar's persona and behavior rules
 4. **Wire up the SDK** in your JS file:
@@ -37,25 +37,25 @@ your_demo/
 
    await sdk.start();
    ```
-5. **Add your demo** to the table in the root `README.md` and to `docs/index.html`
+5. **Add your demo** to the table in `README.md` and to `index.html`
 6. **Test locally**: `python3 -m http.server 8080` from the project root
 
 ### Key Patterns
 
 - **DPP Injection**: Always inject on `SHOWING_AGENT` event with a ~500ms delay
 - **Call-End Detection**: Listen for `CONVERSATION_ENDED` event and/or match avatar speech phrases
-- **Analysis**: Add a new mode to `hr_avatar/lambda/lambda_function.py` if you need post-call analysis
-- **Dual Avatars**: See `att_lily/` for managing multiple SDK instances with independent lifecycles
+- **Analysis**: Add a new mode to `examples/hr_avatar/lambda/lambda_function.py` if you need post-call analysis
+- **Dual Avatars**: See `examples/att_lily/` for managing multiple SDK instances with independent lifecycles
 
 ### Adding a New Analysis Mode
 
-1. Add your mode handler in `hr_avatar/lambda/lambda_function.py`:
+1. Add your mode handler in `examples/hr_avatar/lambda/lambda_function.py`:
    ```python
    elif analysis_mode == 'your_mode':
        system_prompt = "..."
        # Process and return structured JSON
    ```
-2. Deploy: `cd hr_avatar/lambda && ./deploy.sh`
+2. Deploy: `cd examples/hr_avatar/lambda && ./deploy.sh`
 3. Call from your demo: `POST` to the API URL with `{ "analysis_mode": "your_mode", "transcript": "..." }`
 
 ## Running Tests
@@ -69,13 +69,15 @@ npm test               # Run all E2E tests
 ## Project Structure
 
 ```
-├── kaltura-avatar-sdk.js      ← The SDK (don't modify without bumping version)
-├── kaltura-avatar-sdk.min.js  ← Minified build
-├── kaltura-avatar-sdk.d.ts    ← TypeScript declarations
-├── docs/                      ← Landing page and images
-├── att_lily/                  ← AT&T Seller Hub demo
-├── hr_avatar/                 ← HR Avatar demo
-├── code_interview/            ← Code Interview demo
-├── hr_avatar/lambda/          ← Shared analysis backend (AWS Lambda)
-└── .github/workflows/         ← CI and GitHub Pages deployment
+├── sdk/                         ← The SDK (don't modify without bumping version)
+│   ├── kaltura-avatar-sdk.js
+│   ├── kaltura-avatar-sdk.min.js
+│   └── kaltura-avatar-sdk.d.ts
+├── examples/                    ← Demo applications
+│   ├── att_lily/                ← AT&T Seller Hub
+│   ├── hr_avatar/               ← HR Avatar + shared Lambda backend
+│   ├── code_interview/          ← Code Interview
+│   └── basic_demo/              ← Minimal starter
+├── index.html                   ← Landing page (GitHub Pages root)
+└── .github/workflows/           ← CI and GitHub Pages deployment
 ```

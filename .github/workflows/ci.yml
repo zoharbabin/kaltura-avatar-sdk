@@ -46,7 +46,7 @@ jobs:
       - name: Check SDK file sizes
         run: |
           MAX_SIZE=8192
-          SIZE=$(wc -c < kaltura-avatar-sdk.min.js)
+          SIZE=$(wc -c < sdk/kaltura-avatar-sdk.min.js)
           echo "SDK minified size: ${SIZE} bytes"
           if [ "$SIZE" -gt "$MAX_SIZE" ]; then
             echo "::error::SDK minified size ($SIZE bytes) exceeds limit ($MAX_SIZE bytes)"
@@ -62,6 +62,6 @@ jobs:
 
       - name: Check for console.log in SDK
         run: |
-          if grep -n "console.log" kaltura-avatar-sdk.js | grep -v "console.error"; then
+          if grep -n "console.log" sdk/kaltura-avatar-sdk.js | grep -v "console.error"; then
             echo "::warning::Found console.log in SDK source (only console.error is allowed)"
           fi
