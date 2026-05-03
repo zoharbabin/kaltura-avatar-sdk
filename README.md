@@ -71,6 +71,50 @@ sdk.getTranscript();           // Array of {role, text, timestamp}
 sdk.downloadTranscript();      // Downloads as file
 ```
 
+## Use This Repo as an AI Skill
+
+This repository is designed to work as an instant skill for AI coding agents (Claude, ChatGPT, Copilot, etc.). Point your agent at this repo and ask it to build something — it will understand the full SDK, advanced patterns, and how to write the avatar's Knowledge Base prompt.
+
+### Claude Code / Claude Projects
+
+Add this repo as context, then prompt:
+
+```
+Build me a customer support avatar using this SDK.
+My Kaltura client ID is: 123456
+My flow ID is: agent-7
+```
+
+Claude reads `AGENTS.md` automatically (via `CLAUDE.md` → `@AGENTS.md`) and generates both the app code **and** the Knowledge Base prompt for Kaltura Studio.
+
+### Any AI Agent (ChatGPT, Copilot, etc.)
+
+Paste the contents of [`AGENTS.md`](AGENTS.md) into your system prompt or project knowledge, then ask:
+
+```
+Using the Kaltura Avatar SDK, build me a product training quiz
+that asks 5 questions, gives feedback after each, and ends with
+a score summary. My avatar ID is XYZ.
+```
+
+The agent will generate:
+1. **HTML + JavaScript** — complete app with DPP injection, spoken command detection, and UI
+2. **Knowledge Base prompt** — paste directly into Kaltura Studio (RICECO-structured)
+
+### What the AI Agent Will Know
+
+| Capability | Covered |
+|-----------|---------|
+| Full SDK API (constructor, events, lifecycle, transcript) | Yes |
+| Dynamic Prompt Injection (real-time context updates) | Yes |
+| Avatar Spoken Commands (trigger JS from speech) | Yes |
+| Multi-persona switching via DPP | Yes |
+| Visual effects (images, popup links, email collection) | Yes |
+| Pronunciation / lexeme instructions | Yes |
+| RICECO framework for writing Knowledge Base prompts | Yes |
+| Complete working example with fictional company | Yes |
+| Pre-ship checklist | Yes |
+
 ## Documentation
 
 - [AI Agent Guide](AGENTS.md) — Complete SDK reference + advanced patterns for AI coding agents
